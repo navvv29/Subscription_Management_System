@@ -85,8 +85,8 @@ export default function DashboardPage() {
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          <div className="flex items-center gap-4 p-4 rounded-lg bg-[var(--warning-50)] border border-amber-200">
-            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+          <div className="flex items-center gap-4 p-4 rounded-lg bg-[var(--warning-50)] border border-[var(--warning-border)]">
+            <div className="w-10 h-10 rounded-full bg-[var(--card-strong)] flex items-center justify-center shadow-sm">
               <Zap className="w-5 h-5 text-[var(--warning-600)]" />
             </div>
             <div>

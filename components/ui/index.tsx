@@ -21,15 +21,15 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer';
+  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] disabled:opacity-50 disabled:pointer-events-none cursor-pointer active:scale-[0.985]';
 
   const variants = {
-    primary: 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm',
-    secondary: 'bg-secondary text-secondary-foreground hover:bg-[var(--slate-200)]',
-    outline: 'border border-border bg-transparent hover:bg-accent hover:text-accent-foreground',
-    ghost: 'hover:bg-accent hover:text-accent-foreground',
-    destructive: 'bg-destructive text-destructive-foreground hover:opacity-90 shadow-sm',
-    success: 'bg-success text-white hover:opacity-90 shadow-sm',
+    primary: 'bg-[image:var(--primary-gradient)] text-primary-foreground shadow-[0_10px_30px_-14px_var(--primary-glow)] hover:brightness-110 hover:shadow-[0_14px_36px_-14px_var(--primary-glow)]',
+    secondary: 'bg-secondary text-secondary-foreground border border-border hover:bg-accent',
+    outline: 'border border-border bg-[var(--input-bg)] text-foreground backdrop-blur hover:bg-accent hover:text-accent-foreground hover:border-[color-mix(in_srgb,var(--primary)_40%,transparent)]',
+    ghost: 'text-foreground hover:bg-accent hover:text-accent-foreground',
+    destructive: 'bg-destructive text-destructive-foreground shadow-[0_10px_26px_-16px_rgba(239,68,68,0.8)] hover:brightness-110',
+    success: 'bg-[var(--success-500)] text-white shadow-[0_10px_26px_-16px_rgba(16,185,129,0.8)] hover:brightness-110',
   };
 
   const sizes = {
@@ -71,7 +71,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="space-y-1.5">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-[var(--slate-700)]">
+          <label htmlFor={inputId} className="block text-sm font-medium text-foreground/80">
             {label}
             {props.required && <span className="text-destructive ml-0.5">*</span>}
           </label>
@@ -80,7 +80,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           ref={ref}
           className={cn(
-            'flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm shadow-sm transition-colors',
+            'flex h-9 w-full rounded-lg border border-input bg-[var(--input-bg)] px-3 py-2 text-sm text-foreground shadow-sm backdrop-blur transition-colors',
             'placeholder:text-muted-foreground',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent',
             'disabled:cursor-not-allowed disabled:opacity-50',
@@ -113,7 +113,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="space-y-1.5">
         {label && (
-          <label htmlFor={selectId} className="block text-sm font-medium text-[var(--slate-700)]">
+          <label htmlFor={selectId} className="block text-sm font-medium text-foreground/80">
             {label}
             {props.required && <span className="text-destructive ml-0.5">*</span>}
           </label>
@@ -122,7 +122,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           id={selectId}
           ref={ref}
           className={cn(
-            'flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm shadow-sm',
+            'flex h-9 w-full rounded-lg border border-input bg-[var(--input-bg)] px-3 py-2 text-sm text-foreground shadow-sm backdrop-blur',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent',
             'disabled:cursor-not-allowed disabled:opacity-50',
             error && 'border-destructive',
@@ -156,7 +156,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="space-y-1.5">
         {label && (
-          <label htmlFor={textareaId} className="block text-sm font-medium text-[var(--slate-700)]">
+          <label htmlFor={textareaId} className="block text-sm font-medium text-foreground/80">
             {label}
             {props.required && <span className="text-destructive ml-0.5">*</span>}
           </label>
@@ -165,7 +165,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={textareaId}
           ref={ref}
           className={cn(
-            'flex min-h-[80px] w-full rounded-lg border border-input bg-white px-3 py-2 text-sm shadow-sm',
+            'flex min-h-[80px] w-full rounded-lg border border-input bg-[var(--input-bg)] px-3 py-2 text-sm text-foreground shadow-sm backdrop-blur',
             'placeholder:text-muted-foreground',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent',
             'disabled:cursor-not-allowed disabled:opacity-50',
@@ -198,7 +198,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
           ref={ref}
           type="checkbox"
           className={cn(
-            'h-4 w-4 rounded border-[var(--slate-300)] text-primary focus:ring-ring',
+            'h-4 w-4 rounded border-[var(--input)] bg-[var(--input-bg)] text-primary accent-[var(--primary)] focus:ring-ring',
             className
           )}
           {...props}
@@ -233,7 +233,7 @@ export function Card({ children, className, hover = false, padding = 'md' }: Car
   return (
     <div
       className={cn(
-        'bg-card rounded-xl border border-border shadow-sm',
+        'relative bg-card rounded-xl border border-border shadow-[var(--panel-shadow)] backdrop-blur-xl',
         paddings[padding],
         hover && 'card-hover cursor-pointer',
         className
@@ -257,12 +257,12 @@ interface BadgeProps {
 export function Badge({ children, variant = 'default', className, dot = false }: BadgeProps) {
   const variants = {
     default: 'bg-[var(--primary-50)] text-[var(--primary-700)] border-[var(--primary-200)]',
-    success: 'bg-[var(--success-50)] text-[var(--success-700)] border-green-200',
-    warning: 'bg-[var(--warning-50)] text-[var(--warning-600)] border-amber-200',
-    danger: 'bg-[var(--danger-50)] text-[var(--danger-700)] border-red-200',
-    info: 'bg-[var(--info-50)] text-[var(--info-600)] border-blue-200',
-    outline: 'bg-transparent text-[var(--slate-600)] border-[var(--slate-300)]',
-    muted: 'bg-[var(--slate-100)] text-[var(--slate-600)] border-[var(--slate-200)]',
+    success: 'bg-[var(--success-50)] text-[var(--success-700)] border-[var(--success-border)]',
+    warning: 'bg-[var(--warning-50)] text-[var(--warning-600)] border-[var(--warning-border)]',
+    danger: 'bg-[var(--danger-50)] text-[var(--danger-700)] border-[var(--danger-border)]',
+    info: 'bg-[var(--info-50)] text-[var(--info-600)] border-[var(--info-border)]',
+    outline: 'bg-transparent text-foreground/70 border-border',
+    muted: 'bg-muted text-muted-foreground border-border',
   };
 
   const dotColors = {
@@ -278,7 +278,7 @@ export function Badge({ children, variant = 'default', className, dot = false }:
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full border',
+        'inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full border backdrop-blur-sm',
         variants[variant],
         className
       )}
@@ -313,9 +313,10 @@ export function Dialog({ open, onClose, title, description, children, size = 'md
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-[#030712]/60 backdrop-blur-md" onClick={onClose} />
       <div className={cn(
-        'relative bg-card rounded-xl border border-border shadow-xl animate-scale-in w-full mx-4',
+        'relative bg-[var(--card-strong)]/95 rounded-2xl border border-border shadow-[0_40px_120px_-30px_rgba(0,0,0,0.75)] backdrop-blur-2xl animate-scale-in w-full mx-4 overflow-hidden',
+        "before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[linear-gradient(90deg,transparent,var(--primary),transparent)] before:opacity-70 before:content-['']",
         sizes[size]
       )}>
         {(title || description) && (
@@ -343,10 +344,10 @@ interface AlertProps {
 
 export function Alert({ type, title, message, onClose, className }: AlertProps) {
   const styles = {
-    success: 'bg-[var(--success-50)] border-green-200 text-[var(--success-700)]',
-    error: 'bg-[var(--danger-50)] border-red-200 text-[var(--danger-700)]',
-    warning: 'bg-[var(--warning-50)] border-amber-200 text-[var(--warning-600)]',
-    info: 'bg-[var(--info-50)] border-blue-200 text-[var(--info-600)]',
+    success: 'bg-[var(--success-50)] border-[var(--success-border)] text-[var(--success-700)]',
+    error: 'bg-[var(--danger-50)] border-[var(--danger-border)] text-[var(--danger-700)]',
+    warning: 'bg-[var(--warning-50)] border-[var(--warning-border)] text-[var(--warning-600)]',
+    info: 'bg-[var(--info-50)] border-[var(--info-border)] text-[var(--info-600)]',
   };
 
   return (
@@ -516,7 +517,7 @@ export function SearchFilterRow({
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
-          className="w-full h-9 pl-9 pr-3 rounded-lg border border-input bg-white text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent"
+          className="w-full h-9 pl-9 pr-3 rounded-lg border border-input bg-[var(--input-bg)] text-sm text-foreground shadow-sm backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent"
         />
       </div>
       {children && <div className="flex items-center gap-2">{children}</div>}
@@ -537,11 +538,15 @@ interface StatCardProps {
 
 export function StatCard({ title, value, icon, trend, className }: StatCardProps) {
   return (
-    <Card className={cn('animate-fade-in', className)}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="mt-1 text-2xl font-bold text-foreground tracking-tight">{value}</p>
+    <Card className={cn(
+      'animate-fade-in overflow-hidden',
+      "before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[linear-gradient(90deg,transparent,var(--primary),transparent)] before:opacity-60 before:content-['']",
+      className
+    )}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="kicker">{title}</p>
+          <p className="mt-2 text-2xl font-bold text-foreground tracking-tight tabular-nums">{value}</p>
           {trend && (
             <p className={cn('mt-1 text-xs font-medium', trend.positive ? 'text-[var(--success-600)]' : 'text-[var(--danger-600)]')}>
               {trend.positive ? '↑' : '↓'} {trend.value}
@@ -549,7 +554,7 @@ export function StatCard({ title, value, icon, trend, className }: StatCardProps
           )}
         </div>
         {icon && (
-          <div className="p-2.5 rounded-lg bg-accent text-[var(--primary-600)]">
+          <div className="relative p-2.5 rounded-xl bg-[image:var(--primary-gradient)] text-white shadow-[0_10px_28px_-12px_var(--primary-glow)]">
             {icon}
           </div>
         )}
@@ -569,7 +574,7 @@ interface TabsProps {
 
 export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
   return (
-    <div className="flex items-center gap-1 border-b border-border mb-4 overflow-x-auto">
+    <div className="flex flex-wrap items-center gap-1 border-b border-border mb-4">
       {tabs.map((tab) => (
         <button
           key={tab.id}

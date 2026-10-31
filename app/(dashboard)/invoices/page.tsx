@@ -98,7 +98,7 @@ export default function InvoicesPage() {
                 {invoices.map((inv) => (
                   <tr key={inv.id}>
                     <td>
-                      <Link href={`/invoices/${inv.id}`} className="font-medium text-primary hover:underline">
+                      <Link href={`/invoices/${inv.id}`} className="font-medium text-primary hover:underline whitespace-nowrap">
                         {inv.number}
                       </Link>
                     </td>
