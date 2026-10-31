@@ -21,7 +21,7 @@ F03| Password validation| Afeela| Pending| Not started|
 F04| Password reset email| Afeela| Pending| Not started| 
 F05| User roles| Afeeela| Pending| Not started| 
 F06| Admin-only staff creation| Afeela| Pending| Not started| 
-F07| Customer data isolation| Afeela| Pending| Not started| 
+F07 | Customers can access only their own records | Afeela | Pending customer-scoped APIs and RLS | Not verified | Can Customer A access Customer B's records? |
 F08| Product management| Afeela| Pending| Not started| 
 F09| Product variants| Afeela| Pending| Not started| 
 F10| Billing plans| Afeela| Pending| Not started| 
