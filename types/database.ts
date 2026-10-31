@@ -175,6 +175,10 @@ export interface Payment {
   paymentDate: string;
   note?: string;
   recordedBy: string;
+  transactionRef?: string;
+  isRefund?: boolean;
+  refundReason?: string;
+  originalPaymentId?: string;
   createdAt: string;
 }
 
@@ -215,13 +219,18 @@ export interface DashboardSummary {
 
 export interface BillingRun {
   id: string;
+  asOfDate?: string;
   startedAt: string;
   completedAt?: string;
+  durationMs?: number;
   totalProcessed: number;
   successCount: number;
   failureCount: number;
   skippedCount: number;
+  duplicateCount: number;
+  totalBilledMinor: number;
   status: 'running' | 'completed' | 'failed';
+  triggeredBy?: string;
   errors: BillingRunError[];
 }
 

@@ -37,15 +37,15 @@ Track the implementation and verification of all functional and non-functional r
 | F19 | Invoice generation from subscription | Navaneed | `features/billing/billing-service.ts` | **Verified** (`tests/billing-idempotency.test.ts` passing) | Snapshot preservation |
 | F20 | Invoice details, taxes, discount snapshots and totals | Navaneed + Afeela | `features/billing/billing-service.ts`, `lib/billing/tax-service.ts` | **Verified** (`tests/tax-discount.test.ts` passing) | Deterministic GST fixture |
 | F21 | Invoice lifecycle (Draft→Confirmed→Paid) and balances | Navaneed | `features/payments/payment-service.ts` | **Verified** (`tests/payment-reconciliation.test.ts` 8/8 passing) | Balances & partial pay |
-| F22 | Invoice actions (confirm, cancel, print) | Navaneed + Shehruz | `app/api/invoices/[id]/confirm/route.ts`, `cancel/route.ts` | **Verified** (`tests/edge-cases.test.ts` passing) | Paid invoices locked |
-| F23 | Duplicate/skipped billing prevention | Navaneed + Afeela | `features/billing/billing-service.ts`, `app/api/billing/process/route.ts` | **Verified** (`tests/billing-idempotency.test.ts` 5/5 passing) | Period key guard |
+| F22 | Invoice actions (confirm, cancel, print, email) | Navaneed + Shehruz | `app/api/invoices/[id]/confirm/route.ts`, `cancel/route.ts`, `send/route.ts`, `app/invoices/[id]/print/page.tsx` | **Verified** (`tests/edge-cases.test.ts` passing; printable PDF view + email dispatch wired) | Paid invoices locked |
+| F23 | Duplicate/skipped billing prevention & concurrency locks | Navaneed + Afeela | `features/billing/billing-service.ts`, `lib/billing/billing-lock.ts` | **Verified** (`tests/billing-idempotency.test.ts` 5/5, `tests/billing-lock.test.ts` 2/2 passing) | Period key guard & mutex |
 | F24 | Admin-managed fixed/percentage discounts | Navaneed + Afeela | `lib/billing/discount-service.ts` | **Verified** (`tests/tax-discount.test.ts` passing) | Minor units & % caps |
 | F25 | Discount minimum purchase or quantity | Navaneed | `lib/billing/discount-service.ts` | **Verified** (`tests/tax-discount.test.ts` passing) | Threshold checks |
 | F26 | Discount validity dates and usage limits | Navaneed + Afeela | `lib/billing/discount-service.ts`, `features/billing/billing-service.ts` | **Verified** (`tests/discount-concurrency.test.ts` passing) | Atomic cap tracking |
 | F27 | Discount product/subscription scope | Navaneed + Afeela | `lib/billing/discount-service.ts` | **Verified** (`tests/tax-discount.test.ts` passing) | Product ID filter |
 | F28 | Automatic discount application to next invoice | Navaneed | `features/billing/billing-service.ts` | **Verified** (`tests/billing-idempotency.test.ts` passing) | Auto applied in batch |
 | F29 | Discount stops when expired or exhausted | Navaneed | `lib/billing/discount-service.ts` | **Verified** (`tests/tax-discount.test.ts`, `discount-concurrency.test.ts`) | Usage limit stops |
-| F30 | Payment recording (method, amount, date, note) | Navaneed | `features/payments/payment-service.ts`, `app/api/payments/route.ts` | **Verified** (`tests/payment-reconciliation.test.ts` passing) | Overpayment rejected |
+| F30 | Payment recording & refunds (method, amount, note, refund reversal) | Navaneed | `features/payments/payment-service.ts`, `app/api/payments/refund/route.ts` | **Verified** (`tests/payment-reconciliation.test.ts`, `tests/refund-reconciliation.test.ts` passing) | Overpayment rejected, refunds logged |
 | F31 | Paid and outstanding invoice visibility | Navaneed + Shehruz | `app/(dashboard)/invoices/page.tsx`, `app/api/invoices/route.ts` | **Verified** (Register with balance breakdown) | — |
 | F32 | Overdue invoice follow-up | Navaneed + Shehruz | `app/api/dashboard/route.ts` | **Verified** (`tests/dashboard-reconciliation.test.ts` passing) | Overdue past due date |
 | F33 | Active subscription finance view | Navaneed | `app/api/dashboard/route.ts` | **Verified** (`tests/dashboard-reconciliation.test.ts` passing) | Reconciles to active |
@@ -59,17 +59,17 @@ Track the implementation and verification of all functional and non-functional r
 
 | ID | Requirement | Owner | Implementation / PR | Evidence / Status | Open Question |
 |---|---|---|---|---|---|
-| N01 | Performance under 2 seconds with thousands of records | Afeela + Navaneed | `tests/benchmark.test.ts` | **Verified** (5,000 filter/sort: **1.49ms**; 1,000 batch billing: **97.46ms**) | Benchmark measured |
-| N02 | Reliable billing / no duplicates or skipped invoices | Navaneed + Afeela | `features/billing/billing-service.ts` | **Verified** (`tests/billing-idempotency.test.ts` 5/5 passing) | Idempotent batch |
+| N01 | Performance under 2 seconds with thousands of records | Afeela + Navaneed | `tests/benchmark.test.ts` | **Verified** (5,000 filter/sort: **1.42ms**; 1,000 batch billing: **112.47ms**) | Benchmark measured |
+| N02 | Reliable billing / no duplicates or skipped invoices | Navaneed + Afeela | `features/billing/billing-service.ts`, `lib/billing/billing-lock.ts` | **Verified** (`tests/billing-idempotency.test.ts` 5/5, `tests/billing-lock.test.ts` 2/2 passing) | Idempotent batch & mutex |
 | N03 | Role and customer-data security | Afeela | Pending | In progress | RLS enforcement |
 | N04 | Financial calculation correctness (minor units, deterministic tax/discount) | Navaneed + Afeela | `lib/billing/tax-service.ts`, `lib/billing/discount-service.ts` | **Verified** (`tests/tax-discount.test.ts` blueprint fixture passing) | Integer paise (INR) |
-| N05 | Usability, unified command center experience | Shehruz + Navaneed | `app/(dashboard)/` | **Verified** (Command Center & operational screens) | — |
-| N06 | Scalable and maintainable architecture | Navaneed + Afeela | Modular Next.js 16 monolith, typed DTOs | **Verified** (Clean build, 49 tests passing, 0 errors) | — |
+| N05 | Usability, unified command center experience | Shehruz + Navaneed | `app/(dashboard)/`, `app/invoices/[id]/print/` | **Verified** (Command Center, operations screens & print preview) | — |
+| N06 | Scalable, crash-safe, and auditable architecture | Navaneed + Afeela | `PersistentStore`, `BillingRuns`, `audit_logs`, PostgreSQL DDL | **Verified** (15 test files, 58 tests passing, 0 build errors) | Full audit & persistence |
 
 ---
 
 ## Verification Evidence Reference
-- **Automated Test Run:** 10 test files, 49 passing tests (`npm test` in 4.56s).
-- **Scale Benchmark (N01):** 5,000 subscriptions queried in 1.49ms; 1,000 invoices generated in 97.46ms.
+- **Automated Test Run:** 15 test files, 58 passing tests (`npm test` in 5.02s).
+- **Scale Benchmark (N01):** 5,000 subscriptions queried in 1.42ms; 1,000 invoices generated in 112.47ms.
 - **Blueprint Fixture (N04):** ₹10,000 base + ₹560 variant × 2 units = ₹21,120 subtotal − ₹2,112 discount (10%) + ₹3,421.44 tax (18%) = ₹22,429.44 total (`2,242,944` paise). Exact match.
-- **Git Commit:** `origin/feature/navaneed-core-billing`
+- **Git Branch:** `feature/navaneed-core-billing`

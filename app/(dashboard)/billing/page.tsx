@@ -1,15 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Play, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Play, ShieldCheck, History, CheckCircle2, XCircle } from 'lucide-react';
+import { formatCurrency } from '@/types/common';
+import type { BillingRun } from '@/types/database';
 
 export default function BillingCenterPage() {
   const [asOfDate, setAsOfDate] = useState('');
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [history, setHistory] = useState<BillingRun[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
-  React.useEffect(() => {
+  const fetchHistory = async () => {
+    try {
+      setLoadingHistory(true);
+      const res = await fetch('/api/billing/runs');
+      const json = await res.json();
+      if (json.data) {
+        setHistory(json.data);
+      }
+    } catch {
+      console.error('Failed to load billing history');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
     setAsOfDate(new Date().toISOString().split('T')[0]);
+    fetchHistory();
   }, []);
 
   const handleRunBatch = async () => {
@@ -23,6 +43,7 @@ export default function BillingCenterPage() {
       });
       const json = await res.json();
       setResult(json.data || json.error);
+      fetchHistory(); // refresh history
     } catch {
       setResult({ message: 'Failed to contact billing process endpoint' });
     } finally {
@@ -35,7 +56,7 @@ export default function BillingCenterPage() {
       <div>
         <h1 className="text-xl font-bold text-white tracking-tight">Billing Center & Operations</h1>
         <p className="text-xs text-slate-400 mt-1">
-          Server-side automated billing engine with strict idempotency and duplicate-run protection
+          Server-side automated billing engine with concurrency mutex locking, formal BillingRuns, and idempotency guards
         </p>
       </div>
 
@@ -55,10 +76,11 @@ export default function BillingCenterPage() {
           <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-2">
             <div className="flex items-center gap-2 text-emerald-400 font-medium">
               <ShieldCheck className="w-4 h-4" />
-              Duplicate Billing Guard
+              Concurrency & Idempotency
             </div>
             <p>
-              Constraint <code className="text-indigo-300 font-mono text-[10px]">(subscription_id, period_start, period_end)</code> guarantees no customer is billed twice for the same interval.
+              Protected by distributed concurrency lease lock and unique composite constraint{' '}
+              <code className="text-indigo-300 font-mono text-[10px]">(subscription_id, period_start, period_end)</code>.
             </p>
           </div>
 
@@ -73,7 +95,7 @@ export default function BillingCenterPage() {
         </div>
 
         <div className="md:col-span-2 bg-slate-950 p-6 rounded-xl border border-slate-800">
-          <h2 className="text-sm font-semibold text-white mb-3">Batch Execution Results</h2>
+          <h2 className="text-sm font-semibold text-white mb-3">Live Batch Output</h2>
           {!result ? (
             <div className="text-center py-16 text-xs text-slate-500">
               Run a batch to view processed items, generated invoices, and duplicate prevention logs.
@@ -83,10 +105,13 @@ export default function BillingCenterPage() {
               <div className="p-4 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-between">
                 <div>
                   <div className="text-white font-semibold text-sm">{result.message}</div>
-                  <div className="text-slate-400 mt-1">As-of Date: {result.asOfDate}</div>
+                  <div className="text-slate-400 mt-1">
+                    {result.billingRunId && <span className="font-mono text-indigo-400 mr-2">ID: {result.billingRunId}</span>}
+                    <span>As-of Date: {result.asOfDate}</span>
+                  </div>
                 </div>
                 {result.summary && (
-                  <div className="flex gap-3 text-right">
+                  <div className="flex gap-4 text-right">
                     <div>
                       <div className="text-slate-500">Success</div>
                       <div className="text-emerald-400 font-bold text-sm">{result.summary.successCount}</div>
@@ -99,14 +124,22 @@ export default function BillingCenterPage() {
                       <div className="text-slate-500">Skipped</div>
                       <div className="text-slate-400 font-bold text-sm">{result.summary.skippedCount}</div>
                     </div>
+                    {result.summary.totalBilledMinor !== undefined && (
+                      <div>
+                        <div className="text-slate-500">Billed Total</div>
+                        <div className="text-white font-bold text-sm font-mono">
+                          {formatCurrency(result.summary.totalBilledMinor)}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
               {result.results && result.results.length > 0 && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-56">
                   <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900/60 uppercase text-slate-400 border-b border-slate-800">
+                    <thead className="bg-slate-900/60 uppercase text-slate-400 border-b border-slate-800 sticky top-0">
                       <tr>
                         <th className="py-2.5 px-3">Subscription</th>
                         <th className="py-2.5 px-3">Invoice Number</th>
@@ -142,6 +175,80 @@ export default function BillingCenterPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Historical Billing Runs Section */}
+      <div className="bg-slate-950 p-6 rounded-xl border border-slate-800">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-white">Execution Audit History (Billing Runs)</h2>
+          </div>
+          <button
+            onClick={fetchHistory}
+            className="text-xs text-indigo-400 hover:text-indigo-300 transition"
+          >
+            Refresh Logs
+          </button>
+        </div>
+
+        {loadingHistory ? (
+          <div className="text-center py-8 text-xs text-slate-500">Loading historical runs...</div>
+        ) : history.length === 0 ? (
+          <div className="text-center py-8 text-xs text-slate-500">No historical billing runs recorded yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-300">
+              <thead className="bg-slate-900/60 uppercase text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th className="py-2.5 px-3">Run ID</th>
+                  <th className="py-2.5 px-3">Target Date</th>
+                  <th className="py-2.5 px-3">Started At</th>
+                  <th className="py-2.5 px-3">Duration</th>
+                  <th className="py-2.5 px-3">Success</th>
+                  <th className="py-2.5 px-3">Duplicates</th>
+                  <th className="py-2.5 px-3">Skipped</th>
+                  <th className="py-2.5 px-3">Total Billed</th>
+                  <th className="py-2.5 px-3 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {history.map((run) => (
+                  <tr key={run.id} className="hover:bg-slate-900/40">
+                    <td className="py-2.5 px-3 font-mono text-indigo-400 font-semibold">{run.id}</td>
+                    <td className="py-2.5 px-3">{run.asOfDate || '—'}</td>
+                    <td className="py-2.5 px-3 text-slate-400">{run.startedAt.replace('T', ' ').slice(0, 19)}</td>
+                    <td className="py-2.5 px-3 font-mono">{run.durationMs ? `${run.durationMs}ms` : '—'}</td>
+                    <td className="py-2.5 px-3 font-bold text-emerald-400">{run.successCount}</td>
+                    <td className="py-2.5 px-3 font-bold text-amber-400">{run.duplicateCount}</td>
+                    <td className="py-2.5 px-3 text-slate-400">{run.skippedCount}</td>
+                    <td className="py-2.5 px-3 font-mono text-white">
+                      {formatCurrency(run.totalBilledMinor || 0)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                          run.status === 'completed'
+                            ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800'
+                            : run.status === 'running'
+                            ? 'bg-blue-950/60 text-blue-400 border border-blue-800'
+                            : 'bg-rose-950/60 text-rose-400 border border-rose-800'
+                        }`}
+                      >
+                        {run.status === 'completed' ? (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        ) : (
+                          <XCircle className="w-3 h-3 text-rose-400" />
+                        )}
+                        {run.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

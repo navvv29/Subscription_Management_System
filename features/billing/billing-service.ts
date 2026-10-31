@@ -5,6 +5,7 @@ import type {
   TaxRule,
   Discount,
   BillingInterval,
+  BillingRunError,
 } from '@/types/database';
 import {
   calculateNextBillingDate,
@@ -115,7 +116,7 @@ export function generateInvoiceForSubscription(
       );
       if (discountResult.isEligible) {
         lineDiscount += discountResult.discountAmountMinor;
-        // Track usage in memory
+        // Track usage
         discount.usageCount += 1;
         break; // First eligible discount applies
       }
@@ -185,14 +186,7 @@ export function generateInvoiceForSubscription(
   };
 }
 
-/**
- * Process billing for a list of subscriptions.
- */
-export function processBillingBatch(
-  subscriptions: Array<Subscription & { plan?: { interval: BillingInterval; name: string } }>,
-  customers: Map<string, { id: string; name: string; email: string }>,
-  context: BillingContext
-): {
+export interface BillingBatchResult {
   results: InvoiceGenerationResult[];
   summary: {
     totalProcessed: number;
@@ -200,13 +194,26 @@ export function processBillingBatch(
     failureCount: number;
     skippedCount: number;
     duplicateCount: number;
+    totalBilledMinor: number;
   };
-} {
+  errors: BillingRunError[];
+}
+
+/**
+ * Process billing for a list of subscriptions.
+ */
+export function processBillingBatch(
+  subscriptions: Array<Subscription & { plan?: { interval: BillingInterval; name: string } }>,
+  customers: Map<string, { id: string; name: string; email: string }>,
+  context: BillingContext
+): BillingBatchResult {
   const results: InvoiceGenerationResult[] = [];
+  const errors: BillingRunError[] = [];
   let successCount = 0;
   let failureCount = 0;
   let skippedCount = 0;
   let duplicateCount = 0;
+  let totalBilledMinor = 0;
 
   for (const subscription of subscriptions) {
     const customer = customers.get(subscription.customerId) ?? {
@@ -223,6 +230,9 @@ export function processBillingBatch(
         duplicateCount++;
       } else {
         successCount++;
+        if (result.invoice) {
+          totalBilledMinor += result.invoice.totalMinor;
+        }
       }
     } else if (
       result.error?.includes('not due') ||
@@ -232,6 +242,11 @@ export function processBillingBatch(
       skippedCount++;
     } else {
       failureCount++;
+      errors.push({
+        subscriptionId: subscription.id,
+        subscriptionNumber: subscription.number,
+        error: result.error || 'Unknown billing error',
+      });
     }
   }
 
@@ -243,6 +258,8 @@ export function processBillingBatch(
       failureCount,
       skippedCount,
       duplicateCount,
+      totalBilledMinor,
     },
+    errors,
   };
 }

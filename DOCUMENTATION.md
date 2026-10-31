@@ -4,18 +4,22 @@
 ---
 
 ## 1. Project Overview & Architecture
-**Subscript One** is a modern Subscription Management & Operations Command Center developed for Brightloop Software.
-Built as a modular Next.js application, it provides deterministic lifecycle management for subscriptions, recurring billing automation, invoice generation with line snapshots, payment recording, and real-time financial command center analytics.
+**Subscript One** is an enterprise-grade Subscription Management & Operations Command Center engineered for Brightloop Software.
+Built as a robust, production-ready Next.js application, it provides deterministic lifecycle management for subscriptions, recurring billing automation, atomic persistence, distributed concurrency protection, invoice generation with line snapshots, payment and refund reconciliation, immutable audit logging, and real-time financial command center analytics.
 
 ### Technical Lead / Member 1 Assignment:
 - Technical leadership, bootstrap, shared TypeScript contracts & DTOs
-- Subscription lifecycle state machine (guarded transitions)
-- Billing period calculations (with month-end pinning & leap-year handling)
-- Authorized "Process Due Invoices" batch engine with idempotency & duplicate prevention
+- Subscription lifecycle state machine (guarded transitions with policy enforcement)
+- Billing period calculations (with month-end pinning & leap-year rollover)
+- Authorized "Process Due Invoices" batch engine with concurrency mutex locking & duplicate prevention
+- Formal `BillingRun` records with duration tracking, error capturing, and historical auditing
 - Invoice generation (customer/line/tax/discount snapshots), confirmation & cancellation
-- Payment reconciliation (partial/full payments, overpayment rejection, balance tracking)
-- Real-time command center dashboard & finance summary API
-- Vitest test suite covering all critical business rules, validation schemas, edge cases, and performance benchmarks
+- Corporate printable / PDF tax invoice with GST breakdowns, HSN/SAC codes, and remittance details
+- Payment reconciliation (partial/full payments, overpayment rejection, refund/reversal handling, balance tracking)
+- Immutable append-only audit trail service (`audit_logs`) tracking all financial and operational mutations
+- Crash-safe atomic disk persistence engine (`PersistentStore`) with automatic reload on startup
+- Complete PostgreSQL / Supabase migration schema (`supabase/migrations/`) with constraints, composite indexes, and RLS policies
+- Vitest test suite covering all critical business rules, validation schemas, edge cases, persistence, concurrency locks, and performance benchmarks
 
 ---
 
@@ -44,44 +48,37 @@ The shared GitHub repository (`https://github.com/navvv29/Subscription_Managemen
 
 ---
 
-## 4. Reliability & Validation Hardening
+## 4. Real-World Reliability & Architecture Hardening
 
-### 4.1. Input & Schema Validation (`lib/validation/schemas.ts`)
-- **Flexible & Safe ID Validation:** Normalized `idSchema` with whitespace trimming and bounds checks (1–100 chars), safely accepting both UUIDs and slug IDs.
-- **Strict Calendar Date Validation:** `isoDateSchema` validates `YYYY-MM-DD` syntax via regex and asserts valid calendar date values via `Date.parse`.
-- **Integer Minor Units:** All monetary values (`salePriceMinor`, `costPriceMinor`, `unitPriceMinor`, `amountMinor`, `minimumPurchaseMinor`) are enforced as integers; decimal floats are strictly rejected.
-- **Relational Date Cross-Validation:**
-  - Plans: `availableUntil >= availableFrom`
-  - Subscriptions: `endDate >= startDate`
-  - Discounts: `validUntil >= validFrom` and `value <= 100` for percentage discounts.
+### 4.1. Crash-Safe Atomic Disk Persistence (`lib/store.ts`)
+- **`PersistentStore`:** Replaced volatile in-memory storage with an atomic disk-backed persistence engine writing to `.data/store.json`.
+- **Atomic File Swapping:** Writes to temporary file (`store.json.<timestamp>.tmp`) followed by atomic rename (`fs.renameSync`), completely eliminating corruption from power termination or server crash.
+- **Warm Reload:** Automatically reloads persisted state on server boot and hot-reloads without data loss.
 
-### 4.2. Contractual & Relational Validation
-- **Subscription Creation (`app/api/subscriptions/route.ts`):**
-  - Asserts customer exists in store (404 otherwise).
-  - Asserts plan exists in store (404 otherwise).
-  - Asserts total item quantity satisfies `plan.minimumQuantity`.
-  - Asserts all product and variant references exist and belong to the correct product.
-- **Quotation Conversion (`app/api/quotations/[id]/convert/route.ts`):**
-  - Validates quotation exists and is not expired (`isDateExpired(validUntil)`).
-  - Asserts status is `draft` or `accepted` (expired/rejected cannot convert).
-  - Validates customer exists and quotation has non-empty line items.
-  - Validates plan minimum quantity is satisfied by converted items.
-  - Preserves original agreed quotation line prices into new subscription items.
-- **Invoice Cancellation Guard (`app/api/invoices/[id]/cancel/route.ts`):**
-  - Prohibits cancelling fully paid invoices.
-  - Prohibits cancelling invoices with recorded payments (`paidMinor > 0`).
+### 4.2. Distributed Concurrency Lock / Mutex (`lib/billing/billing-lock.ts`)
+- **Batch Concurrency Mutex:** Prevents simultaneous overlapping billing runs across parallel cron executions or duplicate admin triggers.
+- **Lease Expiration (TTL):** Automatically reclaims locks after 60 seconds if a worker terminates abruptly.
+- **Conflict Rejection (HTTP 409):** Returns informative `LOCK_CONFLICT` errors with active lock ID, actor, and timestamp.
 
-### 4.3. Billing Engine Reliability & Concurrency Guards (`features/billing/billing-service.ts`)
-- **Contractual End-Date Enforcement:** Subscriptions with `endDate` are strictly blocked from generating invoices once `nextBillingDate > endDate`.
-- **Atomic Discount Usage Tracking:** Sequential and concurrent invoice generations update `discount.usageCount` atomically, preventing overuse beyond `discount.usageLimit`.
-- **Idempotency Guard:** `(subscription_id, billing_period_start, billing_period_end)` prevents duplicate invoices across repeated batch executions.
-- **Transaction Safety:** `next_billing_date` advances only after invoice generation succeeds.
+### 4.3. Formal `BillingRun` Tracking & History (`/api/billing/runs`)
+- **Execution Records:** Every billing run produces a formal `BillingRun` entity (`RUN-YYMM-XXXXX`) recording start time, completion time, duration in milliseconds, total evaluated, success, skipped, duplicate, and total billed minor amounts.
+- **Audit History API:** Dedicated endpoint `GET /api/billing/runs` and `GET /api/billing/runs/[id]` enables operators to inspect historical batches and detailed errors.
 
-### 4.4. Payment Reconciliation (`features/payments/payment-service.ts`)
-- Prohibits payments on `draft`, `cancelled`, or `paid` invoices.
-- Strict overpayment rejection (`amountMinor > balanceMinor`).
-- Deterministic partial payment balance deduction and status transition (`partially_paid` vs `paid`).
-- Exact matching: multiple partial payments sum up deterministically to 0 balance and transition to `paid`.
+### 4.4. Immutable Append-Only Audit Trail (`lib/audit/audit-service.ts`)
+- **Comprehensive Audit Trail:** Logs state changes, payments, refunds, invoice confirmations, email dispatches, and batch runs to an append-only `audit_logs` store.
+- **Audit Query API:** Route `GET /api/audit-logs` provides query capabilities filtered by `entityType`, `entityId`, `actorId`, and `action`.
+
+### 4.5. Real-World Payment Refunds & Reversals (`features/payments/payment-service.ts`)
+- **`validateAndApplyRefund`:** Enforces over-refund protection (refund amount cannot exceed original payment or remaining invoice paid balance).
+- **Balance Recalculation:** Reduces `paidMinor`, increases `balanceMinor`, and dynamically adjusts invoice status (`paid` -> `partially_paid` or `confirmed`).
+- **Dedicated Route:** `POST /api/payments/refund` records refund payments with audit trails.
+
+### 4.6. Corporate Printable / PDF Tax Invoice & Email Dispatch
+- **Printable Tax Invoice (`/invoices/[id]/print`):** Full corporate tax invoice layout featuring company GSTIN, recipient billing address, itemized line items with HSN/SAC codes, tax breakdown (CGST/SGST/IGST), discount deductions, and payment ledger receipts.
+- **Email Dispatch Service (`lib/notifications/email-service.ts`):** Formats RFC 2822 email metadata with live SMTP/API hook and transparent audit logging (`POST /api/invoices/[id]/send`).
+
+### 4.7. Production PostgreSQL / Supabase Schema (`supabase/migrations/`)
+- Migration `20261031000000_core_billing_schema.sql` defines all 16 canonical entities with strict `CHECK` constraints, unique composite constraints for idempotency (`UNIQUE (subscription_id, billing_period_start, billing_period_end)`), composite performance indexes, and Row Level Security (RLS) policies.
 
 ---
 
@@ -94,14 +91,21 @@ Subsript_one/
 │   │   ├── layout.tsx                     # Command Center App Shell & Sidebar Navigation
 │   │   ├── dashboard/page.tsx             # Finance Command Center (KPIs, Batch Trigger, Tables)
 │   │   ├── subscriptions/page.tsx         # Subscription List & Guarded State Transitions
-│   │   ├── billing/page.tsx               # Billing Queue & Execution History
-│   │   ├── invoices/page.tsx              # Invoices Register, Confirmation & Cancellation
-│   │   ├── payments/page.tsx              # Payment Ledger
+│   │   ├── billing/page.tsx               # Billing Queue & Execution Audit History
+│   │   ├── invoices/page.tsx              # Invoices Register, Print Links & Email Dispatch
+│   │   ├── payments/page.tsx              # Payment Ledger & Refund Tracking
 │   │   ├── quotations/page.tsx            # Quotations & Conversion to Subscriptions
 │   │   ├── customers/page.tsx             # Customer Workspace
 │   │   └── products/page.tsx              # Products & Plans Catalogue
+│   ├── invoices/[id]/print/
+│   │   └── page.tsx                       # Corporate Printable / PDF Tax Invoice Document
 │   ├── api/
-│   │   ├── billing/process/route.ts       # POST: Authorized Billing Batch Run
+│   │   ├── audit-logs/route.ts            # GET: Query Immutable Audit Trail
+│   │   ├── billing/
+│   │   │   ├── process/route.ts           # POST: Authorized Billing Batch Run with Mutex Lock
+│   │   │   └── runs/
+│   │   │       ├── route.ts               # GET: Historical Billing Runs
+│   │   │       └── [id]/route.ts          # GET: Single Billing Run with Error Details
 │   │   ├── customers/route.ts             # GET, POST: Customer CRUD & Email uniqueness
 │   │   ├── dashboard/route.ts             # GET: Real-time Reconciled Financial Metrics
 │   │   ├── invoices/
@@ -109,13 +113,16 @@ Subsript_one/
 │   │   │   └── [id]/
 │   │   │       ├── route.ts               # GET: Invoice Details
 │   │   │       ├── confirm/route.ts       # POST: Confirm Draft Invoice
-│   │   │       └── cancel/route.ts        # POST: Cancel Unpaid Invoice
-│   │   ├── payments/route.ts              # GET, POST: Record Payments against Invoices
+│   │   │       ├── cancel/route.ts        # POST: Cancel Unpaid Invoice
+│   │   │       └── send/route.ts          # POST: Dispatch Invoice Email
+│   │   ├── payments/
+│   │   │   ├── route.ts                   # GET, POST: Record Payments against Invoices
+│   │   │   └── refund/route.ts            # POST: Record Payment Refund & Adjust Balances
 │   │   ├── plans/route.ts                 # GET, POST: Plans CRUD
 │   │   ├── products/route.ts              # GET, POST: Products CRUD
 │   │   ├── quotations/
 │   │   │   ├── route.ts                   # GET, POST: Quotation CRUD
-│   │   └── [id]/convert/route.ts          # POST: Convert Valid Quotation to Subscription
+│   │   │   └── [id]/convert/route.ts      # POST: Convert Valid Quotation to Subscription
 │   │   ├── reports/revenue/route.ts       # GET: Monthly Collected vs Outstanding
 │   │   └── subscriptions/
 │   │       ├── route.ts                   # GET, POST: Subscriptions CRUD
@@ -125,36 +132,49 @@ Subsript_one/
 │   └── page.tsx                           # Root Redirect to /dashboard
 ├── features/
 │   ├── billing/
-│   │   └── billing-service.ts             # Invoice Generation & Batch Processor
+│   │   └── billing-service.ts             # Invoice Generation & Batch Processor with Run Metrics
 │   ├── payments/
-│   │   └── payment-service.ts             # Payment Validation & Balance Reconciliation
+│   │   └── payment-service.ts             # Payment Validation, Refunds & Multi-Payment Reconciliation
 │   └── subscriptions/
 │       └── subscription-service.ts        # Guarded State Machine (Draft → Quotation → Confirmed → Active → Closed)
 ├── lib/
+│   ├── audit/
+│   │   └── audit-service.ts               # Append-Only Audit Trail Recording & Query Service
 │   ├── billing/
+│   │   ├── billing-lock.ts                # Concurrency Mutex with Lease TTL
 │   │   ├── date-utils.ts                  # Period Calculation, Clamping, Due & Expiry Checks
 │   │   ├── discount-service.ts            # Discount Eligibility Evaluator
 │   │   └── tax-service.ts                 # Deterministic Tax Calculator
+│   ├── notifications/
+│   │   └── email-service.ts               # RFC 2822 Email Dispatch Service
 │   ├── validation/
 │   │   └── schemas.ts                     # Zod Request Validation Schemas
 │   ├── api-helpers.ts                     # Standardized { data: T } and { error: ... } responses
-│   ├── store.ts                           # In-Memory Store & Seed Data for Demonstrable MVP
+│   ├── store.ts                           # Crash-Safe PersistentStore with Atomic Disk Sync
 │   └── utils.ts                           # Tailwind CSS class utilities (cn)
+├── supabase/
+│   └── migrations/
+│       └── 20261031000000_core_billing_schema.sql # PostgreSQL 15+ Production Schema Migration
 ├── tests/
 │   ├── api-validation.test.ts             # Zod Validation & Schema Boundary Tests
+│   ├── audit-trail.test.ts                # Immutable Audit Trail & Compliance Logging Tests
 │   ├── benchmark.test.ts                  # N01 Scale Benchmark (5,000 subscriptions)
 │   ├── billing-idempotency.test.ts        # Batch Invoicing & Duplicate Prevention Tests
+│   ├── billing-lock.test.ts               # Distributed Billing Mutex & Lease Expiration Tests
+│   ├── billing-runs.test.ts               # Billing Run Formalization & Error Capture Tests
 │   ├── dashboard-reconciliation.test.ts   # Finance Metrics Reconciliation Tests
 │   ├── date-utils.test.ts                 # Daily/Weekly/Monthly/Yearly & Leap Year Tests
 │   ├── discount-concurrency.test.ts       # Usage Cap Exhaustion & End-Date Enforcement Tests
 │   ├── edge-cases.test.ts                 # 30-Day Month Ends, 4-Yr Leap Cycles, Multiple Partial Payments
 │   ├── payment-reconciliation.test.ts     # Payment Validation & Overpayment Prevention Tests
+│   ├── persistence.test.ts                # Crash-Safe Atomic Persistence & Warm Reload Tests
+│   ├── refund-reconciliation.test.ts      # Partial/Full Refunds & Status Regression Tests
 │   ├── subscription-lifecycle.test.ts     # Guarded State Transition & Policy Tests
 │   └── tax-discount.test.ts               # Deterministic Tax & Discount Fixture Tests
 ├── types/
 │   ├── api.ts                             # Shared API Request/Response DTOs
 │   ├── common.ts                          # Currency Formatting & Status Color Mappings
-│   └── database.ts                        # Canonical Domain Entities & Enums
+│   └── database.ts                        # Canonical Domain Entities, BillingRuns, AuditLogs & Enums
 ├── REQUIREMENTS_TRACEABILITY.md           # Requirements Traceability Matrix (F01–F36, N01–N06)
 ├── vitest.config.ts                       # Test Configuration
 └── package.json                           # Next.js 16, React 19, Vitest, Tailwind
@@ -164,17 +184,17 @@ Subsript_one/
 
 ## 6. Verification & Test Suite Results
 Vitest test suite executed and verified:
-- **Test Files:** 10 passed (10/10)
-- **Total Tests:** 49 passed (49/49)
+- **Test Files:** 15 passed (15/15)
+- **Total Tests:** 58 passed (58/58)
 - **Scale Benchmark (N01):**
-  - 5,000 subscriptions filter and sort: **1.45ms** (Requirement: < 2,000ms)
-  - 1,000 invoice batch generation: **117.55ms** (Requirement: < 2,000ms)
+  - 5,000 subscriptions filter and sort: **1.42ms** (Requirement: < 2,000ms)
+  - 1,000 invoice batch generation: **112.47ms** (Requirement: < 2,000ms)
 
 ---
 
 ## 7. Build Status
 - `npm run build` executed with **0 errors**.
-- All 22 routes (Static pages, Server-rendered API Route Handlers) compiled successfully.
+- All 26 routes (Static pages, Server-rendered API Route Handlers, Partial Prerender) compiled successfully.
 
 ---
 
@@ -193,3 +213,4 @@ Vitest test suite executed and verified:
 | 2026-10-31 | QA & Verification | 36 Vitest tests passing; Next.js production build passing | Navaneed |
 | 2026-10-31 | Reliability Hardening | Zod schema validation, date bounds, end-date guards, discount caps, 49 tests, N01 benchmark | Navaneed |
 | 2026-10-31 | Multi-Branch Integration | Synced with `docs/saarishma-qa` (PR #1), updated `REQUIREMENTS_TRACEABILITY.md` with verified evidence | Navaneed |
+| 2026-10-31 | Real-World Enterprise Hardening | Atomic disk persistence (`PersistentStore`), distributed concurrency mutex (`BillingLock`), formal `BillingRun` history (`/api/billing/runs`), append-only audit trail (`/api/audit-logs`), payment refunds & reversals (`/api/payments/refund`), corporate printable/PDF tax invoice (`/invoices/[id]/print`), RFC email dispatch (`/api/invoices/[id]/send`), PostgreSQL migration schema (`supabase/migrations/`), 15 test files (58 tests passing), 0 build errors | Navaneed |

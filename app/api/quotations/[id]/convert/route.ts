@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { store } from '@/lib/store';
 import { generateUniqueNumber, isDateExpired } from '@/lib/billing/date-utils';
+import { recordAuditLog } from '@/lib/audit/audit-service';
 import type { Subscription, SubscriptionItem } from '@/types/database';
 
 export async function POST(
@@ -20,6 +21,7 @@ export async function POST(
     if (isDateExpired(quotation.validUntil)) {
       quotation.status = 'expired';
       quotation.updatedAt = new Date().toISOString();
+      store.persist();
       return apiError('EXPIRED_QUOTATION', 'Cannot convert an expired quotation.', 400);
     }
 
@@ -100,6 +102,25 @@ export async function POST(
     quotation.updatedAt = new Date().toISOString();
 
     store.subscriptions.set(subscription.id, subscription);
+    store.quotations.set(quotation.id, quotation);
+
+    // Record audit log
+    recordAuditLog({
+      actorId: (body.actorId as string) || 'sales_rep',
+      action: 'quotation.converted_to_subscription',
+      entityType: 'subscription',
+      entityId: subscription.id,
+      metadata: {
+        quotationId: quotation.id,
+        quotationNumber: quotation.number,
+        subscriptionNumber: subscription.number,
+        totalMinor: subscription.totalMinor,
+      },
+    });
+
+    // Atomic disk persistence
+    store.persist();
+
     return apiSuccess(subscription, 201);
   } catch (err: unknown) {
     return apiError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Conversion failed', 500);

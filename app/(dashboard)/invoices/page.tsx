@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { formatCurrency, invoiceStatusColors } from '@/types/common';
 import type { Invoice } from '@/types/database';
+import { Printer, Mail } from 'lucide-react';
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -38,12 +41,29 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleSendEmail = async (id: string) => {
+    try {
+      setSendingId(id);
+      const res = await fetch(`/api/invoices/${id}/send`, { method: 'POST' });
+      const json = await res.json();
+      if (res.ok) {
+        alert(json.data?.message || 'Invoice sent successfully!');
+      } else {
+        alert(json.error?.message || 'Failed to dispatch email.');
+      }
+    } catch {
+      alert('Network error while dispatching email.');
+    } finally {
+      setSendingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div>
         <h1 className="text-xl font-bold text-white tracking-tight">Invoices</h1>
         <p className="text-xs text-slate-400 mt-1">
-          Complete register with tax/discount breakdowns, status lifecycle, and balances
+          Complete register with tax/discount breakdowns, status lifecycle, print preview, and dispatch
         </p>
       </div>
 
@@ -85,7 +105,28 @@ export default function InvoicesPage() {
                         {inv.status}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-right space-x-1">
+                    <td className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
+                      {/* Print View Link */}
+                      <Link
+                        href={`/invoices/${inv.id}/print`}
+                        className="inline-flex items-center gap-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded"
+                        title="Print / PDF Invoice"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print</span>
+                      </Link>
+
+                      {/* Email Dispatch Button */}
+                      <button
+                        onClick={() => handleSendEmail(inv.id)}
+                        disabled={sendingId === inv.id}
+                        className="inline-flex items-center gap-1 text-xs bg-cyan-950/60 hover:bg-cyan-900 text-cyan-300 px-2 py-1 rounded disabled:opacity-50"
+                        title="Dispatch Invoice Email"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>{sendingId === inv.id ? 'Sending...' : 'Email'}</span>
+                      </button>
+
                       {inv.status === 'draft' && (
                         <button
                           onClick={() => handleAction(inv.id, 'confirm')}
@@ -113,4 +154,3 @@ export default function InvoicesPage() {
     </div>
   );
 }
-

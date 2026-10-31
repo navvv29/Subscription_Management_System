@@ -3,6 +3,7 @@ import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createSubscriptionSchema, paginationSchema } from '@/lib/validation/schemas';
 import { generateUniqueNumber } from '@/lib/billing/date-utils';
 import { store } from '@/lib/store';
+import { recordAuditLog } from '@/lib/audit/audit-service';
 import type { Subscription, SubscriptionItem } from '@/types/database';
 
 export async function GET(request: NextRequest) {
@@ -155,6 +156,24 @@ export async function POST(request: NextRequest) {
     };
 
     store.subscriptions.set(subscription.id, subscription);
+
+    // Record audit log
+    recordAuditLog({
+      actorId: (body.actorId as string) || 'system',
+      action: 'subscription.created',
+      entityType: 'subscription',
+      entityId: subscription.id,
+      metadata: {
+        subscriptionNumber: subscription.number,
+        customerId: data.customerId,
+        planId: data.planId,
+        totalMinor,
+      },
+    });
+
+    // Atomic disk persistence
+    store.persist();
+
     return apiSuccess(subscription, 201);
   } catch (err: unknown) {
     return apiError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Failed to create subscription', 500);
