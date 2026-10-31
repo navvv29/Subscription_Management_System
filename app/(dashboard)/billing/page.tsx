@@ -165,8 +165,8 @@ export default function BillingPage() {
                 key={r.subscriptionId}
                 className={`flex items-center justify-between p-4 rounded-lg border ${
                   r.success
-                    ? 'bg-[var(--success-50)] border-green-200'
-                    : 'bg-[var(--danger-50)] border-red-200'
+                    ? 'bg-[var(--success-50)] border-[var(--success-border)]'
+                    : 'bg-[var(--danger-50)] border-[var(--danger-border)]'
                 }`}
               >
                 <div className="flex items-center gap-3">

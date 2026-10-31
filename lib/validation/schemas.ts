@@ -8,6 +8,76 @@ export const isoDateSchema = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
   .refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid calendar date' });
 
+// ============================================================================
+// Supabase Auth & Role Validation Schemas (Work Package 3)
+// ============================================================================
+
+export const passwordSchema = z
+  .string()
+  .min(9, 'Password must be at least 9 characters')
+  .regex(/[a-z]/, 'Use a lowercase letter')
+  .regex(/[A-Z]/, 'Use an uppercase letter')
+  .regex(/[0-9]/, 'Use a digit')
+  .regex(/[^A-Za-z0-9]/, 'Use a special character');
+
+export const signUpSchema = z.object({
+  email: z.string().email(),
+  password: passwordSchema,
+  displayName: z.string().trim().min(1).max(120),
+});
+
+export const signInSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+export const customerSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  email: z.string().email(),
+  phone: z.string().max(50).optional().nullable(),
+  company: z.string().max(200).optional().nullable(),
+  auth_user_id: z.string().uuid().optional().nullable(),
+});
+
+export const productSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  type: z.enum(['physical', 'service', 'digital']),
+  sale_price_minor: z.number().int().nonnegative(),
+  cost_price_minor: z.number().int().nonnegative().default(0),
+  notes: z.string().max(5000).optional().nullable(),
+  is_active: z.boolean().default(true),
+});
+
+export const variantSchema = z.object({
+  product_id: z.string().uuid(),
+  name: z.string().trim().min(1).max(200),
+  value: z.string().max(200).optional().nullable(),
+  price_adjustment_minor: z.number().int(),
+});
+
+export const planFields = z.object({
+  name: z.string().trim().min(1).max(200),
+  description: z.string().max(5000).optional().nullable(),
+  billing_interval: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
+  minimum_quantity: z.number().int().positive().default(1),
+  available_from: z.string().date().optional().nullable(),
+  available_until: z.string().date().optional().nullable(),
+  allow_pause: z.boolean().default(false),
+  allow_early_close: z.boolean().default(true),
+  allow_renewal: z.boolean().default(true),
+  is_active: z.boolean().default(true),
+});
+
+const validPlanDates = (v: { available_from?: string | null; available_until?: string | null }) =>
+  !v.available_until || !v.available_from || v.available_until >= v.available_from;
+
+export const planSchema = planFields.refine(validPlanDates, 'Invalid availability date range');
+export const planUpdateSchema = planFields.partial().refine(validPlanDates, 'Invalid availability date range');
+
+// ============================================================================
+// Core Billing & Operations Schemas (Work Package 1)
+// ============================================================================
+
 export const createCustomerSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(255),
   email: z.string().trim().email('Invalid email address').max(255),

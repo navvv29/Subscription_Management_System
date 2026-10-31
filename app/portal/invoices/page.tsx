@@ -164,7 +164,7 @@ export default function PortalInvoicesPage() {
                   <h3 className="text-sm font-semibold mb-2">Payment History</h3>
                   <div className="space-y-2">
                     {detail.payments.map(p => (
-                      <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-[var(--success-50)] border border-green-200 text-sm">
+                      <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-[var(--success-50)] border border-[var(--success-border)] text-sm">
                         <div>
                           <p className="font-medium text-[var(--success-700)]">{formatCurrency(p.amountMinor)}</p>
                           <p className="text-xs text-[var(--success-600)]">{formatDate(p.paymentDate)} · {formatStatus(p.method)}</p>

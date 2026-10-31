@@ -1,0 +1,42 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { requireAdmin } from '@/lib/auth/guards';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { parseJson, badRequest, success } from '@/lib/api';
+import { passwordSchema } from '@/lib/validation/schemas';
+
+const schema = z.object({
+  email: z.string().email(),
+  password: passwordSchema,
+  displayName: z.string().trim().min(1).max(120),
+  role: z.enum(['staff', 'admin']).default('staff'),
+});
+
+export async function POST(request: Request) {
+  const a = await requireAdmin();
+  if ('response' in a) return a.response;
+  const p = schema.safeParse(await parseJson(request));
+  if (!p.success) return badRequest('Invalid staff account details', p.error.flatten());
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.auth.admin.createUser({
+      email: p.data.email,
+      password: p.data.password,
+      email_confirm: false,
+      user_metadata: { display_name: p.data.displayName },
+    });
+    if (error) return NextResponse.json({ error: { code: 'STAFF_CREATE_FAILED', message: error.message } }, { status: 400 });
+    if (!data.user) return NextResponse.json({ error: { code: 'STAFF_CREATE_FAILED', message: 'User was not created' } }, { status: 500 });
+    const { error: profileError } = await admin
+      .from('profiles')
+      .update({ role: p.data.role, display_name: p.data.displayName })
+      .eq('id', data.user.id);
+    if (profileError) {
+      await admin.auth.admin.deleteUser(data.user.id);
+      return NextResponse.json({ error: { code: 'STAFF_CREATE_FAILED', message: profileError.message } }, { status: 500 });
+    }
+    return success({ id: data.user.id, email: data.user.email, role: p.data.role }, 201);
+  } catch (e) {
+    return NextResponse.json({ error: { code: 'SERVER_CONFIGURATION', message: e instanceof Error ? e.message : 'Server configuration error' } }, { status: 503 });
+  }
+}

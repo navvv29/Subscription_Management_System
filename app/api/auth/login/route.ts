@@ -1,0 +1,17 @@
+import { NextResponse } from 'next/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { parseJson, badRequest, success } from '@/lib/api';
+import { signInSchema } from '@/lib/validation/schemas';
+
+export async function POST(request: Request) {
+  const p = signInSchema.safeParse(await parseJson(request));
+  if (!p.success) return badRequest('Invalid login details', p.error.flatten());
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.signInWithPassword(p.data);
+    if (error) return NextResponse.json({ error: { code: 'LOGIN_FAILED', message: 'Email or password is incorrect' } }, { status: 401 });
+    return success({ userId: data.user.id, email: data.user.email });
+  } catch (err) {
+    return NextResponse.json({ error: { code: 'SERVER_CONFIGURATION', message: err instanceof Error ? err.message : 'Database error' } }, { status: 503 });
+  }
+}

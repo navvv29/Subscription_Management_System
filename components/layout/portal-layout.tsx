@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { FileText, CreditCard, Receipt, Zap, LogOut, Menu, X } from 'lucide-react';
 import { useApiResource } from '@/lib/hooks/use-api-resource';
 import { getPortalProfile } from '@/lib/api';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const portalNavItems = [
   { href: '/portal', label: 'My Quotations', icon: FileText },
@@ -24,12 +25,12 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-40">
+      <header className="bg-card/80 backdrop-blur-xl border-b border-border sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/portal" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--primary-400)] to-[var(--primary-600)] flex items-center justify-center shadow-lg">
+              <div className="w-8 h-8 rounded-lg bg-[image:var(--primary-gradient)] flex items-center justify-center shadow-[0_0_22px_-4px_var(--primary-glow)]">
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <span className="font-bold text-lg tracking-tight text-foreground">
@@ -68,6 +69,7 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <span className="text-sm font-medium text-foreground">{displayName}</span>
               </div>
+              <ThemeToggle />
               <button className="text-muted-foreground hover:text-foreground transition-colors" title="Sign out">
                 <LogOut className="w-4 h-4" />
               </button>
@@ -109,7 +111,7 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Authentication is not wired in this build; say so instead of implying it. */}
-      <div className="border-b border-amber-200 bg-[var(--warning-50)]">
+      <div className="border-b border-[var(--warning-border)] bg-[var(--warning-50)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 text-xs text-[var(--warning-600)]">
           Demo portal session — sample records are shown until authentication and
           customer-scoped APIs are enabled.
