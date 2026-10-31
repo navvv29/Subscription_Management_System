@@ -76,3 +76,4 @@ describe('Financial & Calendar Edge Cases', () => {
     expect(res4.error).toContain('already fully paid');
   });
 });
+
