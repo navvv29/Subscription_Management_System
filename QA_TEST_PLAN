@@ -99,3 +99,48 @@ Evidence Collection
 Verification Rule
 
 The reported team progress does not automatically mean individual QA test cases have passed. Update each test status only after receiving supporting evidence.
+Automated QA Evidence — 31 October 2026
+
+Evidence supplied by: Navaneed (Technical Lead)
+
+Test run summary
+
+- Command: "npm test" ("vitest run")
+- Test files passed: 15
+- Total tests passed: 58
+- Failed tests: 0
+- Duration: 5.34 seconds
+
+QA scenario coverage
+
+Test Case| Scenario| Reported Status| Evidence
+TC05| Product variant price adjustment| Passed| "tests/tax-discount.test.ts"
+TC06| Daily/weekly/monthly/yearly billing| Passed| "tests/date-utils.test.ts"
+TC07| Reject expired quotation| Passed| "tests/date-utils.test.ts", "tests/api-validation.test.ts"
+TC08| Invalid subscription transition| Passed| "tests/subscription-lifecycle.test.ts"
+TC09| Skip paused/closed/expired subscriptions| Passed| "tests/subscription-lifecycle.test.ts", "tests/billing-idempotency.test.ts"
+TC10| Run billing twice without duplicates| Passed| "tests/billing-idempotency.test.ts", "tests/billing-lock.test.ts"
+TC11| Failed invoice creation does not advance date| Passed| "tests/billing-idempotency.test.ts"
+TC12| Expired/below-threshold discount| Passed| "tests/tax-discount.test.ts"
+TC13| Concurrent discount usage cap| Passed| "tests/discount-concurrency.test.ts"
+TC14| Tax and discount calculations| Passed| "tests/tax-discount.test.ts"
+TC15| Partial, full and overpayment| Passed| "tests/payment-reconciliation.test.ts", "tests/refund-reconciliation.test.ts"
+TC16| Overdue invoice filtering| Passed| "tests/dashboard-reconciliation.test.ts"
+TC17| Dashboard metric reconciliation| Passed| "tests/dashboard-reconciliation.test.ts"
+TC18| Printable invoice layout| Passed| Print route and line snapshots reported
+TC19| Invoice email dispatch| Partially verified| Mock fallback logged; real provider delivery and password reset unverified
+TC20| Thousands of subscriptions| Passed in reported benchmark| "tests/benchmark.test.ts"
+
+Performance benchmark evidence
+
+- 5,000 subscription filter/sort: 1.31 ms
+- 1,000 invoice generation batch: 94.86 ms
+
+Outstanding verification
+
+- TC01–TC04: Pending Afeela's authentication and RLS implementation and test evidence.
+- TC19 password reset: Unverified.
+- TC19 real email provider delivery: Unverified; mock fallback is not proof of actual delivery.
+- Customer-to-customer data isolation: Not verified.
+
+QA note: These results were supplied by the technical lead. The statuses above reflect the supplied automated test and scenario coverage evidence, not independent QA execution or production verification.
