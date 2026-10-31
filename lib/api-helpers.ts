@@ -8,3 +8,4 @@ export function apiSuccess<T>(data: T, status: number = 200): NextResponse<ApiSu
 export function apiError(code: string, message: string, status: number = 400): NextResponse<ApiError> {
   return NextResponse.json({ error: { code, message } }, { status });
 }
+

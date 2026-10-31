@@ -65,3 +65,4 @@ export function calculateLineItemTax(
   const lineSubtotal = unitPriceMinor * quantity;
   return calculateLineTax(lineSubtotal, taxRule);
 }
+

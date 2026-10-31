@@ -58,3 +58,4 @@ export async function POST(request: NextRequest) {
     return apiError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Payment recording failed', 500);
   }
 }
+

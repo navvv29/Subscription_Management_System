@@ -185,3 +185,4 @@ class InMemoryStore {
 const globalForStore = globalThis as unknown as { store: InMemoryStore };
 export const store = globalForStore.store || new InMemoryStore();
 if (process.env.NODE_ENV !== 'production') globalForStore.store = store;
+

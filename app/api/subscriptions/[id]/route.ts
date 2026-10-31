@@ -49,3 +49,4 @@ export async function PATCH(
     return apiError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Update failed', 500);
   }
 }
+

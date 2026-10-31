@@ -59,8 +59,44 @@ export async function POST(request: NextRequest) {
     }
 
     const data = parsed.data;
-    const subscriptionId = crypto.randomUUID();
 
+    // Validate Customer exists
+    const customer = store.customers.get(data.customerId);
+    if (!customer) {
+      return apiError('NOT_FOUND', `Customer with ID '${data.customerId}' does not exist`, 404);
+    }
+
+    // Validate Plan exists
+    const plan = store.plans.get(data.planId);
+    if (!plan) {
+      return apiError('NOT_FOUND', `Plan with ID '${data.planId}' does not exist`, 404);
+    }
+
+    // Validate plan minimum quantity
+    const totalQuantity = data.items.reduce((sum, it) => sum + it.quantity, 0);
+    if (totalQuantity < plan.minimumQuantity) {
+      return apiError(
+        'MINIMUM_QUANTITY_NOT_MET',
+        `Plan '${plan.name}' requires a minimum quantity of ${plan.minimumQuantity}, but only ${totalQuantity} was provided.`,
+        400
+      );
+    }
+
+    // Validate products exist
+    for (const it of data.items) {
+      const prod = store.products.get(it.productId);
+      if (!prod) {
+        return apiError('NOT_FOUND', `Product with ID '${it.productId}' does not exist`, 404);
+      }
+      if (it.variantId) {
+        const variant = store.variants.get(it.variantId);
+        if (!variant || variant.productId !== it.productId) {
+          return apiError('NOT_FOUND', `Variant '${it.variantId}' does not belong to product '${it.productId}'`, 404);
+        }
+      }
+    }
+
+    const subscriptionId = crypto.randomUUID();
     let subtotalMinor = 0;
     let taxTotalMinor = 0;
 

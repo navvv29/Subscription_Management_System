@@ -13,3 +13,4 @@ export async function GET(
   }
   return apiSuccess(invoice);
 }
+

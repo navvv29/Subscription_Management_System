@@ -58,3 +58,4 @@ export async function GET() {
     return apiError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Dashboard calculation failed', 500);
   }
 }
+

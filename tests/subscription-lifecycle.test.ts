@@ -93,3 +93,4 @@ describe('Subscription Lifecycle State Machine', () => {
     expect(restrictiveActions).not.toContain('close');
   });
 });
+

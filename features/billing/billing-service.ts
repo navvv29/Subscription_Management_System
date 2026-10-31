@@ -15,7 +15,7 @@ import {
 import { calculateLineItemTax } from '@/lib/billing/tax-service';
 import { evaluateDiscount } from '@/lib/billing/discount-service';
 import { canBeBilled } from '@/features/subscriptions/subscription-service';
-import { format } from 'date-fns';
+import { parseISO, isAfter, startOfDay } from 'date-fns';
 
 export interface BillingContext {
   asOfDate: string; // YYYY-MM-DD
@@ -48,6 +48,19 @@ export function generateInvoiceForSubscription(
       error: `Subscription ${subscription.number} has status '${subscription.status}' and cannot be billed`,
       subscriptionId: subscription.id,
     };
+  }
+
+  // Check if subscription has ended
+  if (subscription.endDate) {
+    const end = startOfDay(parseISO(subscription.endDate));
+    const nextBill = startOfDay(parseISO(subscription.nextBillingDate));
+    if (isAfter(nextBill, end)) {
+      return {
+        success: false,
+        error: `Subscription ${subscription.number} has reached its contractual end date (${subscription.endDate})`,
+        subscriptionId: subscription.id,
+      };
+    }
   }
 
   if (!isDueForBilling(subscription.nextBillingDate, context.asOfDate)) {
@@ -102,7 +115,9 @@ export function generateInvoiceForSubscription(
       );
       if (discountResult.isEligible) {
         lineDiscount += discountResult.discountAmountMinor;
-        break; // First eligible discount
+        // Track usage in memory
+        discount.usageCount += 1;
+        break; // First eligible discount applies
       }
     }
     lineDiscount = Math.min(lineDiscount, lineSubtotal);
@@ -131,7 +146,7 @@ export function generateInvoiceForSubscription(
     invoiceDiscountTotal += lineDiscount;
   }
 
-  const invoiceTotal = invoiceSubtotal - invoiceDiscountTotal + invoiceTaxTotal;
+  const invoiceTotal = Math.max(0, invoiceSubtotal - invoiceDiscountTotal + invoiceTaxTotal);
   const dueDate = billingPeriodEnd;
 
   const invoice: Invoice = {
@@ -209,7 +224,11 @@ export function processBillingBatch(
       } else {
         successCount++;
       }
-    } else if (result.error?.includes('not due') || result.error?.includes('cannot be billed')) {
+    } else if (
+      result.error?.includes('not due') ||
+      result.error?.includes('cannot be billed') ||
+      result.error?.includes('reached its contractual end date')
+    ) {
       skippedCount++;
     } else {
       failureCount++;

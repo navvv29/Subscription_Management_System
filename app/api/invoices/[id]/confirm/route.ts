@@ -26,3 +26,4 @@ export async function POST(
 
   return apiSuccess(invoice);
 }
+

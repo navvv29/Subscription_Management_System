@@ -13,7 +13,15 @@ export async function POST(
   }
 
   if (invoice.status === 'paid') {
-    return apiError('INVALID_STATUS', 'Cannot cancel a paid invoice.', 400);
+    return apiError('INVALID_STATUS', 'Cannot cancel an invoice that is already fully paid.', 400);
+  }
+
+  if (invoice.paidMinor > 0) {
+    return apiError(
+      'INVALID_STATUS',
+      'Cannot cancel an invoice with recorded payments. Settle or reverse payments before cancellation.',
+      400
+    );
   }
 
   if (invoice.status === 'cancelled') {
@@ -22,7 +30,7 @@ export async function POST(
 
   invoice.status = 'cancelled';
   invoice.updatedAt = new Date().toISOString();
-  store.invoices.set(invoice.id, invoice);
+  store.invoices.set(id, invoice);
 
   return apiSuccess(invoice);
 }

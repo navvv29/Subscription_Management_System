@@ -31,8 +31,31 @@ export async function POST(
       );
     }
 
+    if (!quotation.items || quotation.items.length === 0) {
+      return apiError('INVALID_QUOTATION', 'Quotation has no line items to convert.', 400);
+    }
+
+    const customer = store.customers.get(quotation.customerId);
+    if (!customer) {
+      return apiError('NOT_FOUND', `Customer '${quotation.customerId}' associated with this quotation does not exist`, 404);
+    }
+
     const body = await request.json().catch(() => ({}));
     const planId = body.planId || Array.from(store.plans.keys())[0] || 'plan-monthly-core';
+    const plan = store.plans.get(planId);
+    if (!plan) {
+      return apiError('NOT_FOUND', `Plan '${planId}' does not exist`, 404);
+    }
+
+    const totalQuantity = quotation.items.reduce((sum, it) => sum + it.quantity, 0);
+    if (totalQuantity < plan.minimumQuantity) {
+      return apiError(
+        'MINIMUM_QUANTITY_NOT_MET',
+        `Quotation items total quantity (${totalQuantity}) does not satisfy plan minimum quantity (${plan.minimumQuantity}).`,
+        400
+      );
+    }
+
     const startDate = body.startDate || new Date().toISOString().split('T')[0];
     const paymentTerms = body.paymentTerms || 'Net 30';
 
