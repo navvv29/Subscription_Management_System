@@ -1,10 +1,10 @@
 Subscript One — QA Test Plan
 
-Purpose
+1. Purpose
 
 Verify the functional requirements, security, billing reliability and financial correctness of Subscript One.
 
-Test Status
+2. Test Status
 
 - Not started
 - In progress
@@ -13,31 +13,31 @@ Test Status
 - Blocked
 - Unverified
 
-Test Cases
+3. Test Cases
 
 ID| Test Scenario| Expected Result| Evidence Requested| Tester| Status
-TC01| Register with duplicate email| Registration rejected| API response/screenshot| Afeela| Not started
+TC01| Register with duplicate email| Registration rejected| API response/test output| Afeela| Not started
 TC02| Invalid password rules| Weak password rejected| Validation result| Afeela| Not started
-TC03| Non-admin creates staff| Access denied| API response| Afeela| Not started
-TC04 | Customer A accesses Customer B data | Access denied | Supabase Auth, RLS and cross-customer test evidence | Afeela | Blocked |
-TC05| Apply product variant price| Adjustment applied exactly once| Invoice breakdown| Afeela| Not started
-TC06| Test daily/weekly/monthly/yearly billing| Correct billing periods| Test output| Navaneed| Not started
-TC07| Accept expired quotation| Acceptance rejected| Screenshot/API response| Navaneed| Not started
-TC08| Perform invalid subscription transition| Transition rejected| API response| Navaneed| Not started
-TC09| Bill paused/closed/expired subscription| No invoice generated| Billing output| Navaneed| Not started
-TC10| Run billing twice| No duplicate invoice| Invoice records| Navaneed| Not started
-TC11| Simulate invoice creation failure| Next billing date does not advance| Test output| Navaneed| Not started
-TC12| Apply expired/below-threshold/exhausted discount| Discount rejected| Test output| Navaneed| Not started
-TC13| Concurrent discount usage| Usage cap not exceeded| Concurrency test output| Navaneed| Not started
-TC14| Check tax and discount calculations| Totals match expected fixtures| Calculation output| Navaneed| Not started
-TC15| Test partial/full/overpayment| Balance and status update correctly| Payment records| Navaneed| Not started
-TC16| Check overdue invoices| Paid/cancelled invoices excluded| Dashboard screenshot| Navaneed| Not started
-TC17| Reconcile dashboard metrics| Metrics match invoice/payment records| Dashboard evidence| Navaneed| Not started
-TC18| Print invoice| Customer, lines, tax and totals appear| PDF/screenshot| Navaneed| Not started
-TC19| Test password reset and invoice email| Email delivered through verified provider| Email evidence| Afeela + Navaneed| Not started
-TC20| Test thousands of subscriptions| Pagination and performance measured| Benchmark results| Afeela + Navaneed| Not started
+TC03| Non-admin creates staff| Access denied| API response/test output| Afeela| Not started
+TC04| Customer A accesses Customer B data| Access denied| Supabase Auth, RLS and cross-customer test evidence| Afeela| Blocked
+TC05| Apply product variant price| Adjustment applied exactly once| "tests/tax-discount.test.ts"| Navaneed| Passed
+TC06| Test daily/weekly/monthly/yearly billing| Correct billing periods| "tests/date-utils.test.ts"| Navaneed| Passed
+TC07| Accept expired quotation| Acceptance rejected| "tests/date-utils.test.ts", "tests/api-validation.test.ts"| Navaneed| Passed
+TC08| Perform invalid subscription transition| Transition rejected| "tests/subscription-lifecycle.test.ts"| Navaneed| Passed
+TC09| Bill paused/closed/expired subscription| No invoice generated| "tests/subscription-lifecycle.test.ts", "tests/billing-idempotency.test.ts"| Navaneed| Passed
+TC10| Run billing twice| No duplicate invoice| "tests/billing-idempotency.test.ts", "tests/billing-lock.test.ts"| Navaneed| Passed
+TC11| Simulate invoice creation failure| Next billing date does not advance| "tests/billing-idempotency.test.ts"| Navaneed| Passed
+TC12| Apply expired/below-threshold/exhausted discount| Discount rejected| "tests/tax-discount.test.ts"| Navaneed| Passed
+TC13| Concurrent discount usage| Usage cap not exceeded| "tests/discount-concurrency.test.ts"| Navaneed| Passed
+TC14| Check tax and discount calculations| Totals match expected fixtures| "tests/tax-discount.test.ts"| Navaneed| Passed
+TC15| Test partial/full/overpayment| Balance and status update correctly| "tests/payment-reconciliation.test.ts", "tests/refund-reconciliation.test.ts"| Navaneed| Passed
+TC16| Check overdue invoices| Paid/cancelled invoices excluded| "tests/dashboard-reconciliation.test.ts"| Navaneed| Passed
+TC17| Reconcile dashboard metrics| Metrics match invoice/payment records| "tests/dashboard-reconciliation.test.ts"| Navaneed| Passed
+TC18| Print invoice| Customer, lines, tax and totals appear| Print route and line snapshots| Navaneed| Passed
+TC19| Test password reset and invoice email| Email delivered through verified provider| Email and password reset evidence| Afeela + Navaneed| In progress
+TC20| Test thousands of subscriptions| Pagination and performance measured| "tests/benchmark.test.ts" and pagination evidence| Afeela + Navaneed| In progress
 
-Testing Rules
+4. Testing Rules
 
 1. Never mark a test Passed without evidence.
 2. Record actual results, not assumptions.
@@ -45,7 +45,7 @@ Testing Rules
 4. Ask laptop contributors to run tests and attach results to their PRs.
 5. Mark tests Unverified when evidence is unavailable.
 
-Critical Demo Blockers
+5. Critical Demo Blockers
 
 - Unauthorized customer-data access.
 - Duplicate invoice generation.
@@ -53,57 +53,38 @@ Critical Demo Blockers
 - Incorrect payment balances.
 - Incorrect billing dates.
 
-Test Summary
+6. Test Summary
 
 Total test cases: 20
 
-Passed: Pending
+- Passed: 14
+- Failed: 0
+- Blocked: 1
+- In progress: 2
+- Not started: 3
+- Unverified: 0
 
-Failed: Pending
+Note: Statuses reflect the automated test and scenario coverage evidence supplied by the technical lead. They do not represent independent QA execution or production verification.
 
-Blocked: Pending
-
-Unverified: Pending
-Latest Development and QA Progress
+7. Latest Development and QA Progress
 
 Reported Team Progress
 
 Area| Reported Status| QA Follow-up
-Core billing engine| 100%| Collect test evidence
-Vitest tests| 58 tests passing| Request test output
-Performance benchmark| N01 reported met| Collect benchmark evidence
+Core billing engine| 100%| Collect and retain test evidence
+Vitest tests| 58 tests passing| Record automated test output
+Performance benchmark| N01 reported met| Retain benchmark output
 Frontend and admin screens| Approximately 95%| Review remaining portal work
-Customer portal authentication| Demo session stub| Pending backend integration
+Customer portal authentication| Demo session stub| Await backend integration
 Supabase Auth| Incomplete| Await implementation and testing
 Password reset| Incomplete| Await implementation and testing
 RLS middleware| Incomplete| Await implementation and testing
 
-Priority QA Checks
-
-1. Verify registration and login.
-2. Verify password reset.
-3. Verify admin, staff and customer permissions.
-4. Verify customer data isolation.
-5. Verify duplicate invoice prevention.
-6. Verify invoice totals and payment balances.
-7. Verify subscription billing dates.
-8. Verify dashboard financial reconciliation.
-
-Evidence Collection
-
-- Request the 58 Vitest test results from the technical lead.
-- Request performance benchmark output.
-- Request authentication and RLS test results from Afeela.
-- Request customer portal integration evidence from Shehruz.
-
-Verification Rule
-
-The reported team progress does not automatically mean individual QA test cases have passed. Update each test status only after receiving supporting evidence.
-Automated QA Evidence — 31 October 2026
+8. Automated QA Evidence — 31 October 2026
 
 Evidence supplied by: Navaneed (Technical Lead)
 
-Test run summary
+Test Run Summary
 
 - Command: "npm test" ("vitest run")
 - Test files passed: 15
@@ -111,7 +92,7 @@ Test run summary
 - Failed tests: 0
 - Duration: 5.34 seconds
 
-QA scenario coverage
+QA Scenario Coverage
 
 Test Case| Scenario| Reported Status| Evidence
 TC05| Product variant price adjustment| Passed| "tests/tax-discount.test.ts"
@@ -129,18 +110,63 @@ TC16| Overdue invoice filtering| Passed| "tests/dashboard-reconciliation.test.ts
 TC17| Dashboard metric reconciliation| Passed| "tests/dashboard-reconciliation.test.ts"
 TC18| Printable invoice layout| Passed| Print route and line snapshots reported
 TC19| Invoice email dispatch| Partially verified| Mock fallback logged; real provider delivery and password reset unverified
-TC20| Thousands of subscriptions| Passed in reported benchmark| "tests/benchmark.test.ts"
+TC20| Thousands of subscriptions| Benchmark passed; pagination unverified| "tests/benchmark.test.ts"
 
-Performance benchmark evidence
+Performance Benchmark Evidence
 
-- 5,000 subscription filter/sort: 1.31 ms
-- 1,000 invoice generation batch: 94.86 ms
+- 5,000 subscription filter/sort: 1.31 ms.
+- 1,000 invoice generation batch: 94.86 ms.
 
-Outstanding verification
+Outstanding Verification
 
-- TC01–TC04: Pending Afeela's authentication and RLS implementation and test evidence.
+- TC01–TC04: Awaiting Afeela's authentication and RLS implementation and test evidence.
 - TC19 password reset: Unverified.
 - TC19 real email provider delivery: Unverified; mock fallback is not proof of actual delivery.
+- TC20 pagination: Additional evidence required.
 - Customer-to-customer data isolation: Not verified.
 
-QA note: These results were supplied by the technical lead. The statuses above reflect the supplied automated test and scenario coverage evidence, not independent QA execution or production verification.
+9. Priority QA Checks
+
+1. Verify registration and login.
+2. Verify password reset.
+3. Verify admin, staff and customer permissions.
+4. Verify customer data isolation.
+5. Verify duplicate invoice prevention.
+6. Verify invoice totals and payment balances.
+7. Verify subscription billing dates.
+8. Verify dashboard financial reconciliation.
+
+10. Evidence Collection
+
+- Request automated test results from the technical lead.
+- Retain performance benchmark output.
+- Request authentication and RLS test results from Afeela.
+- Request customer portal integration evidence from Shehruz.
+- Request real email delivery evidence from the configured provider.
+- Request pagination test evidence.
+
+11. Authentication and Customer Isolation — Retest Checklist
+
+Current status: Blocked — awaiting Supabase Auth, customer-scoped APIs and RLS implementation.
+
+Test| Expected Result| Evidence Required
+TC01 — Registration| Duplicate email registration is rejected| Registration test output
+TC02 — Password rules| Incomplete or invalid passwords are rejected| Validation test output
+TC03 — Admin creates staff| Non-admin users cannot create staff accounts| Role authorization test
+TC04 — Customer data isolation| Customer A cannot access Customer B's quotations, subscriptions or invoices| Cross-customer API/RLS test
+
+Retest Prerequisites
+
+- Supabase Auth login and signup implemented.
+- Password validation implemented.
+- Session and route protection implemented.
+- Customer ownership enforced by server-side authorization and RLS.
+- Two separate customer accounts available for testing.
+
+QA acceptance rule: Do not mark these tests Passed until actual test evidence demonstrates the expected results.
+
+12. Verification Rule
+
+Reported team progress does not automatically mean individual QA test cases have passed.
+
+Update each test status only after receiving supporting evidence. Distinguish automated unit-test results from integration tests, real email delivery, security verification and production testing.
