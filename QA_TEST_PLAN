@@ -19,7 +19,7 @@ ID| Test Scenario| Expected Result| Evidence Requested| Tester| Status
 TC01| Register with duplicate email| Registration rejected| API response/screenshot| Afeela| Not started
 TC02| Invalid password rules| Weak password rejected| Validation result| Afeela| Not started
 TC03| Non-admin creates staff| Access denied| API response| Afeela| Not started
-TC04| Customer A accesses Customer B data| Access denied| API response| Afeela| Not started
+TC04 | Customer A accesses Customer B data | Access denied | Supabase Auth, RLS and cross-customer test evidence | Afeela | Blocked |
 TC05| Apply product variant price| Adjustment applied exactly once| Invoice breakdown| Afeela| Not started
 TC06| Test daily/weekly/monthly/yearly billing| Correct billing periods| Test output| Navaneed| Not started
 TC07| Accept expired quotation| Acceptance rejected| Screenshot/API response| Navaneed| Not started
