@@ -64,3 +64,38 @@ Failed: Pending
 Blocked: Pending
 
 Unverified: Pending
+Latest Development and QA Progress
+
+Reported Team Progress
+
+Area| Reported Status| QA Follow-up
+Core billing engine| 100%| Collect test evidence
+Vitest tests| 58 tests passing| Request test output
+Performance benchmark| N01 reported met| Collect benchmark evidence
+Frontend and admin screens| Approximately 95%| Review remaining portal work
+Customer portal authentication| Demo session stub| Pending backend integration
+Supabase Auth| Incomplete| Await implementation and testing
+Password reset| Incomplete| Await implementation and testing
+RLS middleware| Incomplete| Await implementation and testing
+
+Priority QA Checks
+
+1. Verify registration and login.
+2. Verify password reset.
+3. Verify admin, staff and customer permissions.
+4. Verify customer data isolation.
+5. Verify duplicate invoice prevention.
+6. Verify invoice totals and payment balances.
+7. Verify subscription billing dates.
+8. Verify dashboard financial reconciliation.
+
+Evidence Collection
+
+- Request the 58 Vitest test results from the technical lead.
+- Request performance benchmark output.
+- Request authentication and RLS test results from Afeela.
+- Request customer portal integration evidence from Shehruz.
+
+Verification Rule
+
+The reported team progress does not automatically mean individual QA test cases have passed. Update each test status only after receiving supporting evidence.
