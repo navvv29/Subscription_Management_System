@@ -1,5 +1,21 @@
 import { z } from 'zod';
 
+export const passwordSchema = z
+  .string()
+  .min(9, 'Password must be longer than eight characters')
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[0-9]/, 'Password must contain a digit')
+  .regex(/[^A-Za-z0-9]/, 'Password must contain a special character');
+
+export const signUpSchema = z.object({
+  email: z.string().trim().email().max(255),
+  password: passwordSchema,
+  displayName: z.string().trim().min(1).max(120),
+});
+
+export const signInSchema = z.object({ email: z.string().trim().email().max(255), password: z.string().min(1) });
+
 export const idSchema = z.string().trim().min(1, 'ID must not be empty').max(100);
 
 export const isoDateSchema = z

@@ -4,10 +4,18 @@ import { createQuotationSchema } from '@/lib/validation/schemas';
 import { generateUniqueNumber } from '@/lib/billing/date-utils';
 import { store } from '@/lib/store';
 import type { Quotation, QuotationItem } from '@/types/database';
+import { getLinkedCustomerId, requireStaff, requireUser } from '@/lib/auth/guards';
 
 export async function GET() {
+  const auth = await requireUser();
+  if ('response' in auth) return auth.response;
   try {
-    const list = Array.from(store.quotations.values()).sort(
+    let list = Array.from(store.quotations.values());
+    if (auth.role === 'customer') {
+      const customerId = await getLinkedCustomerId(auth.supabase, auth.user.id);
+      list = customerId ? list.filter((quotation) => quotation.customerId === customerId) : [];
+    }
+    list.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
     return apiSuccess(list);
@@ -17,6 +25,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireStaff();
+  if ('response' in auth) return auth.response;
   try {
     const body = await request.json();
     const parsed = createQuotationSchema.safeParse(body);
@@ -34,7 +44,7 @@ export async function POST(request: NextRequest) {
     const quotationId = crypto.randomUUID();
     let subtotalMinor = 0;
     let taxTotalMinor = 0;
-    let discountTotalMinor = 0;
+    const discountTotalMinor = 0;
 
     const items: QuotationItem[] = reqItems.map((item) => {
       const product = store.products.get(item.productId);

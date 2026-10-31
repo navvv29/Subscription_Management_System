@@ -3,8 +3,11 @@ import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createPaymentSchema } from '@/lib/validation/schemas';
 import { validateAndApplyPayment } from '@/features/payments/payment-service';
 import { store } from '@/lib/store';
+import { getLinkedCustomerId, requireStaff, requireUser } from '@/lib/auth/guards';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireUser();
+  if ('response' in auth) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const invoiceId = searchParams.get('invoiceId');
@@ -12,6 +15,11 @@ export async function GET(request: NextRequest) {
     let list = Array.from(store.payments.values());
     if (invoiceId) {
       list = list.filter((p) => p.invoiceId === invoiceId);
+    }
+    if (auth.role === 'customer') {
+      const customerId = await getLinkedCustomerId(auth.supabase, auth.user.id);
+      const ownedInvoiceIds = new Set(Array.from(store.invoices.values()).filter((invoice) => invoice.customerId === customerId).map((invoice) => invoice.id));
+      list = list.filter((payment) => ownedInvoiceIds.has(payment.invoiceId));
     }
 
     list.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
@@ -22,6 +30,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireStaff();
+  if ('response' in auth) return auth.response;
   try {
     const body = await request.json();
     const parsed = createPaymentSchema.safeParse(body);

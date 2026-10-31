@@ -5,8 +5,11 @@ import { processBillingBatch } from '@/features/billing/billing-service';
 import { store } from '@/lib/store';
 import { format } from 'date-fns';
 import type { BillingInterval } from '@/types/database';
+import { requireStaff } from '@/lib/auth/guards';
 
 export async function POST(request: NextRequest) {
+  const auth = await requireStaff();
+  if ('response' in auth) return auth.response;
   try {
     const body = await request.json().catch(() => ({}));
     const parsed = processBillingSchema.safeParse(body);

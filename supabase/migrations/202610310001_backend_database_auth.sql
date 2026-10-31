@@ -1,0 +1,335 @@
+create extension if not exists pgcrypto;
+
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  display_name text not null default '',
+  role text not null default 'customer' check (role in ('admin','staff','customer')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index profiles_email_lower_uidx on public.profiles(lower(email));
+create index profiles_role_idx on public.profiles(role);
+
+create table public.customers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (length(trim(name)) > 0),
+  email text not null,
+  phone text,
+  company text,
+  auth_user_id uuid unique references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index customers_email_lower_uidx on public.customers(lower(email));
+create index customers_auth_user_id_idx on public.customers(auth_user_id);
+
+create table public.products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (length(trim(name)) > 0),
+  type text not null check (length(trim(type)) > 0),
+  sale_price_minor bigint not null check (sale_price_minor >= 0),
+  cost_price_minor bigint not null default 0 check (cost_price_minor >= 0),
+  notes text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index products_active_name_idx on public.products(is_active,name);
+
+create table public.product_variants (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete restrict,
+  name text not null check (length(trim(name)) > 0),
+  price_adjustment_minor bigint not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(product_id,name)
+);
+create index product_variants_product_idx on public.product_variants(product_id);
+
+create or replace function public.enforce_variant_nonnegative_price() returns trigger
+language plpgsql set search_path=public as $$
+declare base_price bigint;
+begin
+  if tg_table_name='products' then
+    if exists(select 1 from public.product_variants v where v.product_id=new.id and new.sale_price_minor+v.price_adjustment_minor<0) then
+      raise check_violation using message='product price plus variant adjustment cannot be negative';
+    end if;
+    return new;
+  end if;
+  select p.sale_price_minor into base_price from public.products p where p.id=new.product_id;
+  if base_price+new.price_adjustment_minor<0 then raise check_violation using message='product price plus variant adjustment cannot be negative'; end if;
+  return new;
+end $$;
+create trigger product_variant_price_check before insert or update on public.product_variants for each row execute procedure public.enforce_variant_nonnegative_price();
+create trigger product_sale_price_variant_check before update of sale_price_minor on public.products for each row execute procedure public.enforce_variant_nonnegative_price();
+
+create table public.plans (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (length(trim(name)) > 0),
+  billing_interval text not null check (billing_interval in ('daily','weekly','monthly','yearly')),
+  minimum_quantity integer not null default 1 check (minimum_quantity > 0),
+  available_from date,
+  available_until date,
+  allow_pause boolean not null default false,
+  allow_early_close boolean not null default false,
+  allow_renewal boolean not null default true,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (available_until is null or available_from is null or available_until >= available_from)
+);
+create index plans_active_interval_idx on public.plans(is_active,billing_interval);
+
+create table public.quotation_templates (
+  id uuid primary key default gen_random_uuid(), name text not null,
+  is_active boolean not null default true, created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+create table public.quotation_template_items (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.quotation_templates(id) on delete cascade,
+  product_id uuid references public.products(id) on delete restrict,
+  description text not null, quantity integer not null check(quantity>0),
+  unit_price_minor bigint not null check(unit_price_minor>=0), position integer not null default 0
+);
+create index quotation_template_items_template_idx on public.quotation_template_items(template_id,position);
+
+create table public.quotations (
+  id uuid primary key default gen_random_uuid(), number text not null unique,
+  customer_id uuid not null references public.customers(id) on delete restrict,
+  status text not null default 'draft' check(status in ('draft','sent','accepted','rejected','expired')),
+  valid_until date not null, subtotal_minor bigint not null default 0 check(subtotal_minor>=0),
+  discount_total_minor bigint not null default 0 check(discount_total_minor>=0),
+  tax_total_minor bigint not null default 0 check(tax_total_minor>=0),
+  total_minor bigint not null default 0 check(total_minor>=0), notes text,
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+create index quotations_customer_created_idx on public.quotations(customer_id,created_at desc);
+create table public.quotation_items (
+  id uuid primary key default gen_random_uuid(), quotation_id uuid not null references public.quotations(id) on delete cascade,
+  product_id uuid references public.products(id) on delete set null, product_name_snapshot text not null,
+  variant_id uuid references public.product_variants(id) on delete set null, variant_name_snapshot text,
+  quantity integer not null check(quantity>0), unit_price_minor bigint not null check(unit_price_minor>=0),
+  tax_rule_id uuid, tax_rate_bps integer not null default 0 check(tax_rate_bps between 0 and 10000),
+  tax_amount_minor bigint not null default 0 check(tax_amount_minor>=0),
+  discount_amount_minor bigint not null default 0 check(discount_amount_minor>=0),
+  total_minor bigint not null check(total_minor>=0), position integer not null default 0
+);
+create index quotation_items_quotation_idx on public.quotation_items(quotation_id,position);
+create index quotation_items_product_idx on public.quotation_items(product_id);
+create index quotation_items_variant_idx on public.quotation_items(variant_id);
+
+create table public.subscriptions (
+  id uuid primary key default gen_random_uuid(), number text not null unique,
+  customer_id uuid not null references public.customers(id) on delete restrict,
+  plan_id uuid not null references public.plans(id) on delete restrict,
+  status text not null default 'draft' check(status in ('draft','quotation','confirmed','active','paused','expired','closed')),
+  start_date date not null, end_date date, next_billing_date date not null, payment_terms text not null,
+  subtotal_minor bigint not null default 0 check(subtotal_minor>=0),
+  tax_total_minor bigint not null default 0 check(tax_total_minor>=0),
+  discount_total_minor bigint not null default 0 check(discount_total_minor>=0),
+  total_minor bigint not null default 0 check(total_minor>=0),
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+  check(end_date is null or end_date>=start_date)
+);
+create index subscriptions_status_next_billing_idx on public.subscriptions(status,next_billing_date);
+create index subscriptions_customer_idx on public.subscriptions(customer_id);
+create index subscriptions_plan_idx on public.subscriptions(plan_id);
+create table public.subscription_items (
+  id uuid primary key default gen_random_uuid(), subscription_id uuid not null references public.subscriptions(id) on delete restrict,
+  product_id uuid references public.products(id) on delete set null, product_name_snapshot text not null,
+  variant_id uuid references public.product_variants(id) on delete set null, variant_name_snapshot text,
+  quantity integer not null check(quantity>0), unit_price_minor bigint not null check(unit_price_minor>=0),
+  tax_rule_id uuid, tax_rate_bps integer not null default 0 check(tax_rate_bps between 0 and 10000),
+  tax_amount_minor bigint not null default 0 check(tax_amount_minor>=0), discount_amount_minor bigint not null default 0 check(discount_amount_minor>=0),
+  total_minor bigint not null check(total_minor>=0)
+);
+create index subscription_items_subscription_idx on public.subscription_items(subscription_id);
+create index subscription_items_product_idx on public.subscription_items(product_id);
+
+create table public.tax_rules (
+  id uuid primary key default gen_random_uuid(), name text not null,
+  rate_bps integer not null check(rate_bps between 0 and 10000),
+  behavior text not null check(behavior in ('exclusive','inclusive')),
+  jurisdiction text, is_active boolean not null default true,
+  valid_from date, valid_until date,
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+  check(valid_until is null or valid_from is null or valid_until>=valid_from)
+);
+create table public.discounts (
+  id uuid primary key default gen_random_uuid(), name text not null,
+  type text not null check(type in ('fixed','percentage')),
+  value_minor bigint, value_percent numeric(5,2),
+  minimum_purchase_minor bigint check(minimum_purchase_minor is null or minimum_purchase_minor>=0),
+  minimum_quantity integer check(minimum_quantity is null or minimum_quantity>=0),
+  valid_from date not null, valid_until date not null,
+  usage_limit integer check(usage_limit is null or usage_limit>0), usage_count integer not null default 0 check(usage_count>=0),
+  product_scope uuid[] not null default '{}', is_active boolean not null default true,
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+  check(valid_until>=valid_from),
+  check((type='fixed' and value_minor is not null and value_minor>=0 and value_percent is null) or
+        (type='percentage' and value_percent is not null and value_percent between 0 and 100 and value_minor is null))
+);
+alter table public.quotation_items add column discount_id uuid references public.discounts(id) on delete restrict;
+alter table public.quotation_items add constraint quotation_items_tax_rule_fk foreign key(tax_rule_id) references public.tax_rules(id) on delete restrict;
+alter table public.subscription_items add constraint subscription_items_tax_rule_fk foreign key(tax_rule_id) references public.tax_rules(id) on delete restrict;
+create table public.discount_usages (
+  id uuid primary key default gen_random_uuid(), discount_id uuid not null references public.discounts(id) on delete restrict,
+  customer_id uuid not null references public.customers(id) on delete restrict,
+  invoice_id uuid, used_at timestamptz not null default now()
+);
+create index discount_usages_discount_customer_idx on public.discount_usages(discount_id,customer_id);
+create index discount_usages_invoice_idx on public.discount_usages(invoice_id);
+
+create table public.invoices (
+  id uuid primary key default gen_random_uuid(), number text not null unique,
+  customer_id uuid not null references public.customers(id) on delete restrict,
+  subscription_id uuid references public.subscriptions(id) on delete restrict,
+  status text not null default 'draft' check(status in ('draft','confirmed','paid','cancelled','partially_paid')),
+  billing_period_start date, billing_period_end date, due_date date not null,
+  customer_name_snapshot text not null, customer_email_snapshot text not null,
+  subtotal_minor bigint not null default 0 check(subtotal_minor>=0),
+  discount_total_minor bigint not null default 0 check(discount_total_minor>=0),
+  tax_total_minor bigint not null default 0 check(tax_total_minor>=0),
+  total_minor bigint not null default 0 check(total_minor>=0),
+  paid_minor bigint not null default 0 check(paid_minor>=0 and paid_minor<=total_minor),
+  balance_minor bigint generated always as (total_minor-paid_minor) stored,
+  notes text, tax_snapshot jsonb not null default '[]'::jsonb, discount_snapshot jsonb not null default '[]'::jsonb,
+  issued_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+  check((billing_period_start is null and billing_period_end is null) or
+        (billing_period_start is not null and billing_period_end is not null and billing_period_end>=billing_period_start))
+);
+create unique index invoices_subscription_billing_period_uidx on public.invoices(subscription_id,billing_period_start,billing_period_end)
+  where subscription_id is not null and billing_period_start is not null;
+create index invoices_status_due_date_idx on public.invoices(status,due_date);
+create index invoices_customer_created_idx on public.invoices(customer_id,created_at desc);
+create table public.invoice_items (
+  id uuid primary key default gen_random_uuid(), invoice_id uuid not null references public.invoices(id) on delete restrict,
+  product_id uuid references public.products(id) on delete set null, product_description_snapshot text not null,
+  quantity integer not null check(quantity>0), unit_price_minor bigint not null check(unit_price_minor>=0),
+  tax_rule_id uuid, discount_id uuid,
+  tax_rate_bps integer not null default 0 check(tax_rate_bps between 0 and 10000), tax_amount_minor bigint not null default 0 check(tax_amount_minor>=0),
+  discount_amount_minor bigint not null default 0 check(discount_amount_minor>=0), line_total_minor bigint not null check(line_total_minor>=0),
+  tax_name_snapshot text, tax_behavior_snapshot text, discount_name_snapshot text, position integer not null default 0
+);
+create index invoice_items_invoice_idx on public.invoice_items(invoice_id,position);
+create index invoice_items_product_idx on public.invoice_items(product_id);
+alter table public.invoice_items add constraint invoice_items_tax_rule_fk foreign key(tax_rule_id) references public.tax_rules(id) on delete restrict;
+alter table public.invoice_items add constraint invoice_items_discount_fk foreign key(discount_id) references public.discounts(id) on delete restrict;
+create table public.payments (
+  id uuid primary key default gen_random_uuid(), invoice_id uuid not null references public.invoices(id) on delete restrict,
+  amount_minor bigint not null check(amount_minor>0), method text not null check(method in ('cash','bank_transfer','upi','card','cheque','other')),
+  payment_date date not null, note text, recorded_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index payments_invoice_payment_date_idx on public.payments(invoice_id,payment_date);
+alter table public.discount_usages add constraint discount_usages_invoice_fk foreign key(invoice_id) references public.invoices(id) on delete restrict;
+
+create table public.audit_logs (
+  id bigint generated always as identity primary key, actor_id uuid references public.profiles(id) on delete set null,
+  action text not null, entity_type text not null, entity_id text not null,
+  metadata jsonb not null default '{}'::jsonb, created_at timestamptz not null default now()
+);
+create index audit_logs_entity_idx on public.audit_logs(entity_type,entity_id,created_at desc);
+create table public.billing_runs (
+  id uuid primary key default gen_random_uuid(), started_at timestamptz not null default now(), completed_at timestamptz,
+  total_processed integer not null default 0 check(total_processed>=0), success_count integer not null default 0 check(success_count>=0),
+  failure_count integer not null default 0 check(failure_count>=0), skipped_count integer not null default 0 check(skipped_count>=0),
+  status text not null default 'running' check(status in ('running','completed','failed')),
+  errors jsonb not null default '[]'::jsonb
+);
+
+create or replace function public.current_app_role() returns text language sql stable security definer set search_path=public as $$ select role from public.profiles where id=auth.uid() $$;
+create or replace function public.is_staff_or_admin() returns boolean language sql stable security definer set search_path=public as $$ select coalesce(public.current_app_role() in ('admin','staff'),false) $$;
+create or replace function public.customer_owns_record(p_customer_id uuid) returns boolean language sql stable security definer set search_path=public as $$ select exists(select 1 from public.customers c where c.id=p_customer_id and c.auth_user_id=auth.uid()) $$;
+revoke all on function public.current_app_role() from public;
+revoke all on function public.is_staff_or_admin() from public;
+revoke all on function public.customer_owns_record(uuid) from public;
+grant execute on function public.current_app_role() to authenticated;
+grant execute on function public.is_staff_or_admin() to authenticated;
+grant execute on function public.customer_owns_record(uuid) to authenticated;
+
+create or replace function public.handle_new_auth_user() returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  insert into public.profiles(id,email,display_name,role)
+  values(new.id,lower(new.email),coalesce(new.raw_user_meta_data->>'display_name',''),'customer')
+  on conflict(id) do update set email=excluded.email;
+  return new;
+end $$;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_auth_user();
+
+create or replace function public.protect_profile_identity() returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if auth.uid() is not null and (new.id<>old.id or new.email<>old.email or new.role<>old.role) then
+    raise insufficient_privilege using message='profile identity and role are server managed';
+  end if;
+  return new;
+end $$;
+create trigger profiles_protect_identity before update on public.profiles for each row execute procedure public.protect_profile_identity();
+
+create or replace function public.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at=now(); return new; end $$;
+do $$ declare t text; begin foreach t in array array['profiles','customers','products','product_variants','plans','quotation_templates','quotations','subscriptions','invoices','tax_rules','discounts'] loop execute format('create trigger %I before update on public.%I for each row execute procedure public.set_updated_at()',t||'_set_updated_at',t); end loop; end $$;
+
+alter table public.profiles enable row level security;
+alter table public.customers enable row level security;
+alter table public.products enable row level security;
+alter table public.product_variants enable row level security;
+alter table public.plans enable row level security;
+alter table public.quotation_templates enable row level security;
+alter table public.quotation_template_items enable row level security;
+alter table public.quotations enable row level security;
+alter table public.quotation_items enable row level security;
+alter table public.subscriptions enable row level security;
+alter table public.subscription_items enable row level security;
+alter table public.tax_rules enable row level security;
+alter table public.discounts enable row level security;
+alter table public.discount_usages enable row level security;
+alter table public.invoices enable row level security;
+alter table public.invoice_items enable row level security;
+alter table public.payments enable row level security;
+alter table public.audit_logs enable row level security;
+alter table public.billing_runs enable row level security;
+
+create policy profiles_read on public.profiles for select to authenticated using(id=auth.uid() or public.is_staff_or_admin());
+create policy profiles_update_self on public.profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid());
+create policy customers_read on public.customers for select to authenticated using(public.is_staff_or_admin() or auth_user_id=auth.uid());
+create policy customers_staff_write on public.customers for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy products_public_read on public.products for select to anon,authenticated using(is_active);
+create policy products_staff_read on public.products for select to authenticated using(public.is_staff_or_admin());
+create policy products_staff_write on public.products for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy variants_public_read on public.product_variants for select to anon,authenticated using(exists(select 1 from public.products p where p.id=product_id and p.is_active));
+create policy variants_staff_read on public.product_variants for select to authenticated using(public.is_staff_or_admin());
+create policy variants_staff_write on public.product_variants for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy plans_public_read on public.plans for select to anon,authenticated using(is_active);
+create policy plans_staff_read on public.plans for select to authenticated using(public.is_staff_or_admin());
+create policy plans_staff_write on public.plans for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy quotation_templates_staff on public.quotation_templates for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy quotation_template_items_staff on public.quotation_template_items for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy quotations_read on public.quotations for select to authenticated using(public.is_staff_or_admin() or public.customer_owns_record(customer_id));
+create policy quotations_staff_write on public.quotations for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy quotation_items_read on public.quotation_items for select to authenticated using(exists(select 1 from public.quotations q where q.id=quotation_id and (public.is_staff_or_admin() or public.customer_owns_record(q.customer_id))));
+create policy quotation_items_staff_write on public.quotation_items for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy subscriptions_read on public.subscriptions for select to authenticated using(public.is_staff_or_admin() or public.customer_owns_record(customer_id));
+create policy subscriptions_staff_write on public.subscriptions for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy subscription_items_read on public.subscription_items for select to authenticated using(exists(select 1 from public.subscriptions s where s.id=subscription_id and (public.is_staff_or_admin() or public.customer_owns_record(s.customer_id))));
+create policy subscription_items_staff_write on public.subscription_items for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy taxes_staff on public.tax_rules for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy discounts_staff on public.discounts for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy discount_usages_staff on public.discount_usages for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy invoices_read on public.invoices for select to authenticated using(public.is_staff_or_admin() or public.customer_owns_record(customer_id));
+create policy invoices_staff_write on public.invoices for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy invoice_items_read on public.invoice_items for select to authenticated using(exists(select 1 from public.invoices i where i.id=invoice_id and (public.is_staff_or_admin() or public.customer_owns_record(i.customer_id))));
+create policy invoice_items_staff_write on public.invoice_items for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy payments_read on public.payments for select to authenticated using(exists(select 1 from public.invoices i where i.id=invoice_id and (public.is_staff_or_admin() or public.customer_owns_record(i.customer_id))));
+create policy payments_staff_write on public.payments for all to authenticated using(public.is_staff_or_admin()) with check(public.is_staff_or_admin());
+create policy audit_logs_admin_read on public.audit_logs for select to authenticated using(public.current_app_role()='admin');
+create policy billing_runs_staff_read on public.billing_runs for select to authenticated using(public.is_staff_or_admin());
+
+revoke all on public.profiles,public.customers,public.products,public.product_variants,public.plans,public.quotation_templates,public.quotation_template_items,public.quotations,public.quotation_items,public.subscriptions,public.subscription_items,public.tax_rules,public.discounts,public.discount_usages,public.invoices,public.invoice_items,public.payments,public.audit_logs,public.billing_runs from anon,authenticated;
+grant select(id,email,display_name,role,created_at,updated_at) on public.profiles to authenticated;
+grant update(display_name) on public.profiles to authenticated;
+grant select,insert,update,delete on public.customers,public.product_variants,public.plans,public.quotation_templates,public.quotation_template_items,public.quotations,public.quotation_items,public.subscriptions,public.subscription_items,public.tax_rules,public.discounts,public.discount_usages,public.invoices,public.invoice_items,public.payments to authenticated;
+grant insert,update,delete on public.products to authenticated;
+grant select(id,name,type,sale_price_minor,notes,is_active,created_at,updated_at) on public.products to anon,authenticated;
+grant select on public.product_variants,public.plans to anon;

@@ -1,9 +1,11 @@
-import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { store } from '@/lib/store';
 import { format, parseISO } from 'date-fns';
+import { requireStaff } from '@/lib/auth/guards';
 
 export async function GET() {
+  const auth = await requireStaff();
+  if ('response' in auth) return auth.response;
   try {
     const allInvoices = Array.from(store.invoices.values());
     const allPayments = Array.from(store.payments.values());

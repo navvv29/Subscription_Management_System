@@ -1,11 +1,13 @@
-import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { store } from '@/lib/store';
 import { isDueForBilling } from '@/lib/billing/date-utils';
 import { isBefore, parseISO, startOfDay, format } from 'date-fns';
 import type { DashboardSummary } from '@/types/database';
+import { requireStaff } from '@/lib/auth/guards';
 
 export async function GET() {
+  const auth = await requireStaff();
+  if ('response' in auth) return auth.response;
   try {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const today = startOfDay(new Date());

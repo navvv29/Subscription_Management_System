@@ -2,8 +2,11 @@ import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { paginationSchema } from '@/lib/validation/schemas';
 import { store } from '@/lib/store';
+import { getLinkedCustomerId, requireUser } from '@/lib/auth/guards';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireUser();
+  if ('response' in auth) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const params = paginationSchema.safeParse({
@@ -25,6 +28,10 @@ export async function GET(request: NextRequest) {
     if (status) list = list.filter((i) => i.status === status);
     if (customerId) list = list.filter((i) => i.customerId === customerId);
     if (subscriptionId) list = list.filter((i) => i.subscriptionId === subscriptionId);
+    if (auth.role === 'customer') {
+      const customerId = await getLinkedCustomerId(auth.supabase, auth.user.id);
+      list = customerId ? list.filter((invoice) => invoice.customerId === customerId) : [];
+    }
 
     list.sort((a, b) => {
       const order = params.data.sortOrder === 'asc' ? 1 : -1;

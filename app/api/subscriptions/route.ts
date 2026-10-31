@@ -4,8 +4,11 @@ import { createSubscriptionSchema, paginationSchema } from '@/lib/validation/sch
 import { generateUniqueNumber } from '@/lib/billing/date-utils';
 import { store } from '@/lib/store';
 import type { Subscription, SubscriptionItem } from '@/types/database';
+import { getLinkedCustomerId, requireStaff, requireUser } from '@/lib/auth/guards';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireUser();
+  if ('response' in auth) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const params = paginationSchema.safeParse({
@@ -29,6 +32,10 @@ export async function GET(request: NextRequest) {
     if (customerId) {
       list = list.filter((s) => s.customerId === customerId);
     }
+    if (auth.role === 'customer') {
+      const ownCustomerId = await getLinkedCustomerId(auth.supabase, auth.user.id);
+      list = ownCustomerId ? list.filter((s) => s.customerId === ownCustomerId) : [];
+    }
 
     list.sort((a, b) => {
       const order = params.data.sortOrder === 'asc' ? 1 : -1;
@@ -51,6 +58,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireStaff();
+  if ('response' in auth) return auth.response;
   try {
     const body = await request.json();
     const parsed = createSubscriptionSchema.safeParse(body);

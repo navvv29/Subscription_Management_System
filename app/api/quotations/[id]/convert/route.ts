@@ -3,11 +3,14 @@ import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { store } from '@/lib/store';
 import { generateUniqueNumber, isDateExpired } from '@/lib/billing/date-utils';
 import type { Subscription, SubscriptionItem } from '@/types/database';
+import { requireStaff } from '@/lib/auth/guards';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireStaff();
+  if ('response' in auth) return auth.response;
   try {
     const { id } = await params;
     const quotation = store.quotations.get(id);

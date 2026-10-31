@@ -1,11 +1,14 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { store } from '@/lib/store';
+import { requireStaff } from '@/lib/auth/guards';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireStaff();
+  if ('response' in auth) return auth.response;
   const { id } = await params;
   const invoice = store.invoices.get(id);
   if (!invoice) {
