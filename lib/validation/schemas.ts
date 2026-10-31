@@ -69,6 +69,7 @@ export const createQuotationSchema = z.object({
       z.object({
         productId: idSchema,
         variantId: idSchema.optional(),
+        planId: idSchema.optional(),
         quantity: z.number().int('Quantity must be an integer').min(1, 'Quantity must be at least 1'),
         unitPriceMinor: z.number().int('Unit price must be an integer').min(0, 'Unit price cannot be negative'),
         taxRuleId: idSchema.optional(),

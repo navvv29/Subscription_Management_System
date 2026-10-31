@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       summary: batchOutcome.summary,
       results: batchOutcome.results.map((r) => ({
         subscriptionId: r.subscriptionId,
+        subscriptionNumber: store.subscriptions.get(r.subscriptionId)?.number ?? r.subscriptionId,
         success: r.success,
         invoiceNumber: r.invoice?.number,
         isDuplicate: !!r.isDuplicate,

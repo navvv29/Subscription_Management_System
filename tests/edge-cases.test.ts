@@ -29,7 +29,7 @@ describe('Financial & Calendar Edge Cases', () => {
   });
 
   it('handles exact sum of multiple partial payments resulting in paid status', () => {
-    let invoice: Invoice = {
+    const invoice: Invoice = {
       id: 'inv-multi-pay',
       number: 'INV-M1',
       customerId: 'c1',
