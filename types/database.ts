@@ -72,6 +72,9 @@ export interface QuotationItem {
   productName: string;
   variantId?: string;
   variantName?: string;
+  /** Optional plan the line is quoted under; drives conversion defaults. */
+  planId?: string;
+  planName?: string;
   quantity: number;
   unitPriceMinor: number;
   taxRuleId?: string;

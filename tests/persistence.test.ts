@@ -38,7 +38,8 @@ describe('Real-World Persistence Engine', () => {
     // Verify written file is valid JSON
     const rawContent = fs.readFileSync(testStoragePath, 'utf-8');
     const parsed = JSON.parse(rawContent);
-    expect(parsed.customers.some((c: any) => c.id === 'cust-test-persistence')).toBe(true);
+    const customers = parsed.customers as Array<{ id: string }>;
+    expect(customers.some((c) => c.id === 'cust-test-persistence')).toBe(true);
 
     // Create a new independent instance pointing to the same storage path
     const restoredStore = new PersistentStore(testStoragePath);

@@ -43,7 +43,11 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const planId = body.planId || Array.from(store.plans.keys())[0] || 'plan-monthly-core';
+    const planId =
+      body.planId ||
+      quotation.items.find((item) => item.planId)?.planId ||
+      Array.from(store.plans.keys())[0] ||
+      'plan-monthly-core';
     const plan = store.plans.get(planId);
     if (!plan) {
       return apiError('NOT_FOUND', `Plan '${planId}' does not exist`, 404);

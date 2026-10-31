@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const quotationId = crypto.randomUUID();
     let subtotalMinor = 0;
     let taxTotalMinor = 0;
-    let discountTotalMinor = 0;
+    const discountTotalMinor = 0;
 
     const items: QuotationItem[] = reqItems.map((item) => {
       const product = store.products.get(item.productId);
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
         const variant = store.variants.get(item.variantId);
         variantName = variant?.name;
       }
+      const plan = item.planId ? store.plans.get(item.planId) : undefined;
 
       const lineSubtotal = item.unitPriceMinor * item.quantity;
       subtotalMinor += lineSubtotal;
@@ -62,6 +63,8 @@ export async function POST(request: NextRequest) {
         productName,
         variantId: item.variantId,
         variantName,
+        planId: item.planId,
+        planName: plan?.name,
         quantity: item.quantity,
         unitPriceMinor: item.unitPriceMinor,
         taxRuleId: item.taxRuleId,

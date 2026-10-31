@@ -1,138 +1,116 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { subscriptionStatusColors } from '@/types/common';
-import { formatCurrency } from '@/types/common';
-import type { Subscription } from '@/types/database';
+import React, { useState } from 'react';
+import Link from 'next/link';
+import {
+  PageHeader, Card, Button, SearchFilterRow, Badge,
+  EmptyState, Alert, Tabs, LoadingState, ErrorState, Pagination,
+} from '@/components/ui';
+import { useApiResource, useDebouncedValue } from '@/lib/hooks/use-api-resource';
+import { listSubscriptions } from '@/lib/api';
+import { SubscriptionStatus } from '@/types';
+import { formatDate, formatStatus } from '@/lib/utils';
+import { CreditCard, Eye } from 'lucide-react';
+
+const PAGE_SIZE = 10;
+
+const statusVariant: Record<SubscriptionStatus, 'success' | 'warning' | 'danger' | 'info' | 'muted' | 'default'> = {
+  draft: 'muted',
+  confirmed: 'info',
+  active: 'success',
+  paused: 'warning',
+  cancelled: 'danger',
+  expired: 'muted',
+  pending_renewal: 'info',
+};
+
+const statusTabs = [
+  { id: 'all', label: 'All' },
+  { id: 'active', label: 'Active' },
+  { id: 'paused', label: 'Paused' },
+  { id: 'cancelled', label: 'Cancelled' },
+];
 
 export default function SubscriptionsPage() {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
 
-  const loadData = async () => {
-    try {
-      const res = await fetch('/api/subscriptions');
-      const json = await res.json();
-      if (json.data?.data) {
-        setSubscriptions(json.data.data);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data, loading, error, reload } = useApiResource(
+    `subscriptions:${debouncedSearch}:${statusFilter}:${page}`,
+    () => listSubscriptions({
+      search: debouncedSearch,
+      status: statusFilter as SubscriptionStatus | 'all',
+      page,
+      pageSize: PAGE_SIZE,
+    })
+  );
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleTransition = async (id: string, action: string) => {
-    try {
-      const res = await fetch(`/api/subscriptions/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      if (res.ok) {
-        loadData();
-      } else {
-        const err = await res.json();
-        alert(err.error?.message || 'Transition failed');
-      }
-    } catch {
-      alert('Network error');
-    }
-  };
+  const subscriptions = data?.data ?? [];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-xl font-bold text-white tracking-tight">Subscriptions Management</h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Guarded lifecycle state machine: Draft → Quotation → Confirmed → Active → Closed / Paused
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Subscriptions"
+        description="View and manage customer subscriptions and their lifecycle."
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Subscriptions' }]}
+      />
 
-      <div className="bg-slate-950 p-6 rounded-xl border border-slate-800">
-        {loading ? (
-          <div className="text-center py-10 text-slate-400 text-sm">Loading subscriptions...</div>
+      <Card padding="none">
+        <div className="px-4 pt-4">
+          <Tabs tabs={statusTabs} activeTab={statusFilter} onTabChange={(id) => { setStatusFilter(id); setPage(1); }} />
+          <SearchFilterRow
+            searchValue={search}
+            onSearchChange={(value) => { setSearch(value); setPage(1); }}
+            searchPlaceholder="Search by number, customer or plan..."
+          />
+        </div>
+
+        {loading && !data ? (
+          <div className="p-4"><LoadingState message="Loading subscriptions..." rows={5} /></div>
+        ) : error && !data ? (
+          <ErrorState message={error} onRetry={reload} />
         ) : subscriptions.length === 0 ? (
-          <div className="text-center py-10 text-slate-500 text-sm">No subscriptions found.</div>
+          <EmptyState
+            icon={<CreditCard className="w-12 h-12" />}
+            title="No subscriptions found"
+            description="Subscriptions are created from accepted quotations."
+          />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="text-xs uppercase bg-slate-900/60 text-slate-400 border-b border-slate-800">
+            {error && <div className="px-4"><Alert type="error" message={error} onClose={() => reload()} /></div>}
+            <table className="w-full data-table">
+              <thead>
                 <tr>
-                  <th className="py-3 px-3">Subscription</th>
-                  <th className="py-3 px-3">Start Date</th>
-                  <th className="py-3 px-3">Next Billing</th>
-                  <th className="py-3 px-3">Total Amount</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-3 text-right">State Actions</th>
+                  <th>Number</th>
+                  <th>Customer</th>
+                  <th>Plan</th>
+                  <th>Status</th>
+                  <th>Start</th>
+                  <th>Next Billing</th>
+                  <th>Terms</th>
+                  <th className="w-16"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {subscriptions.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-900/40">
-                    <td className="py-3 px-3 font-mono font-medium text-white text-xs">{s.number}</td>
-                    <td className="py-3 px-3 text-xs">{s.startDate}</td>
-                    <td className="py-3 px-3 text-xs font-mono text-sky-400">{s.nextBillingDate}</td>
-                    <td className="py-3 px-3 text-xs font-semibold text-white">
-                      {formatCurrency(s.totalMinor)}
+              <tbody>
+                {subscriptions.map((sub) => (
+                  <tr key={sub.id}>
+                    <td>
+                      <Link href={`/subscriptions/${sub.id}`} className="font-medium text-primary hover:underline">
+                        {sub.number}
+                      </Link>
                     </td>
-                    <td className="py-3 px-3">
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${subscriptionStatusColors[s.status] || 'bg-slate-800 text-slate-400'}`}>
-                        {s.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right space-x-1">
-                      {s.status === 'draft' && (
-                        <button
-                          onClick={() => handleTransition(s.id, 'submit_quotation')}
-                          className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded"
-                        >
-                          To Quotation
-                        </button>
-                      )}
-                      {s.status === 'quotation' && (
-                        <button
-                          onClick={() => handleTransition(s.id, 'confirm')}
-                          className="text-xs bg-indigo-900 hover:bg-indigo-800 text-indigo-200 px-2 py-1 rounded"
-                        >
-                          Confirm
-                        </button>
-                      )}
-                      {s.status === 'confirmed' && (
-                        <button
-                          onClick={() => handleTransition(s.id, 'activate')}
-                          className="text-xs bg-emerald-900 hover:bg-emerald-800 text-emerald-200 px-2 py-1 rounded"
-                        >
-                          Activate
-                        </button>
-                      )}
-                      {s.status === 'active' && (
-                        <>
-                          <button
-                            onClick={() => handleTransition(s.id, 'pause')}
-                            className="text-xs bg-amber-900/60 hover:bg-amber-800/60 text-amber-200 px-2 py-1 rounded"
-                          >
-                            Pause
-                          </button>
-                          <button
-                            onClick={() => handleTransition(s.id, 'close')}
-                            className="text-xs bg-rose-900/60 hover:bg-rose-800/60 text-rose-200 px-2 py-1 rounded"
-                          >
-                            Close
-                          </button>
-                        </>
-                      )}
-                      {s.status === 'paused' && (
-                        <button
-                          onClick={() => handleTransition(s.id, 'resume')}
-                          className="text-xs bg-emerald-900 hover:bg-emerald-800 text-emerald-200 px-2 py-1 rounded"
-                        >
-                          Resume
-                        </button>
-                      )}
+                    <td>{sub.customerName}</td>
+                    <td>{sub.planName}</td>
+                    <td><Badge variant={statusVariant[sub.status]} dot>{formatStatus(sub.status)}</Badge></td>
+                    <td>{formatDate(sub.startDate)}</td>
+                    <td>{formatDate(sub.nextBillingDate)}</td>
+                    <td><Badge variant="outline">{sub.paymentTerms}</Badge></td>
+                    <td>
+                      <Link href={`/subscriptions/${sub.id}`} title="View details">
+                        <Button variant="ghost" size="icon" tabIndex={-1}><Eye className="w-4 h-4" /></Button>
+                      </Link>
                     </td>
                   </tr>
                 ))}
@@ -140,8 +118,16 @@ export default function SubscriptionsPage() {
             </table>
           </div>
         )}
-      </div>
+        <div className="px-4 pb-4">
+          <Pagination
+            currentPage={data?.page ?? 1}
+            totalPages={data?.totalPages ?? 1}
+            onPageChange={setPage}
+            totalItems={data?.total ?? 0}
+            pageSize={PAGE_SIZE}
+          />
+        </div>
+      </Card>
     </div>
   );
 }
-
