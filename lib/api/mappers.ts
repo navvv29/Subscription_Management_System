@@ -191,6 +191,9 @@ export function mapPayment(
     method: payment.method,
     paymentDate: payment.paymentDate,
     note: payment.note,
+    isRefund: payment.isRefund,
+    refundReason: payment.refundReason,
+    originalPaymentId: payment.originalPaymentId,
     createdAt: payment.createdAt,
   };
 }

@@ -68,7 +68,7 @@ line plan, and billing batch results include `subscriptionNumber`.
 - No Supabase auth/RLS, so portal data is not server-authorized yet.
 - No email provider; server dispatches are logged and the UI reports that
   honestly instead of claiming delivery.
-- The UI does not yet expose the newer refund, billing-run history or audit-log
-  endpoints; they exist server-side.
+- Refunds are exposed on the payment ledger; billing-run history and audit-log
+  views are still server-only.
 - The frontend keeps its own view models with display joins; keep them aligned
   with `types/database.ts` when the contracts change.

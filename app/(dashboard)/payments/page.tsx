@@ -3,14 +3,14 @@
 import React, { useState } from 'react';
 import {
   PageHeader, Card, Button, SearchFilterRow, Badge,
-  Input, Select, Textarea, EmptyState, Alert, LoadingState, ErrorState, Pagination,
+  Input, Select, Textarea, EmptyState, Alert, LoadingState, ErrorState, Pagination, Dialog,
 } from '@/components/ui';
 import { useApiResource, useDebouncedValue } from '@/lib/hooks/use-api-resource';
-import { listPayments, listPayableInvoices, createPayment } from '@/lib/api';
+import { listPayments, listPayableInvoices, createPayment, refundPayment } from '@/lib/api';
 import { ApiRequestError } from '@/lib/api/client';
-import { PaymentMethod } from '@/types';
+import { Payment, PaymentMethod } from '@/types';
 import { formatCurrency, formatDate, formatStatus } from '@/lib/utils';
-import { DollarSign, Plus, CreditCard, Banknote, Smartphone } from 'lucide-react';
+import { DollarSign, Plus, CreditCard, Banknote, Smartphone, RotateCcw } from 'lucide-react';
 
 const PAGE_SIZE = 10;
 
@@ -40,6 +40,13 @@ export default function PaymentsPage() {
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Refund / reversal state
+  const [refundTarget, setRefundTarget] = useState<Payment | null>(null);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refundError, setRefundError] = useState<string | null>(null);
+  const [refunding, setRefunding] = useState(false);
+
   // Form state
   const [fInvoiceId, setFInvoiceId] = useState('');
   const [fAmount, setFAmount] = useState('');
@@ -60,6 +67,51 @@ export default function PaymentsPage() {
   );
 
   const payments = data?.payments.data ?? [];
+
+  function openRefund(payment: Payment) {
+    setRefundTarget(payment);
+    setRefundAmount((payment.amountMinor / 100).toFixed(2));
+    setRefundReason('Customer billing adjustment / credit note');
+    setRefundError(null);
+  }
+
+  async function handleRefund(e: React.FormEvent) {
+    e.preventDefault();
+    if (!refundTarget) return;
+    const amountMinor = Math.round(Number(refundAmount) * 100);
+    if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+      setRefundError('Enter a refund amount greater than zero.');
+      return;
+    }
+    if (amountMinor > refundTarget.amountMinor) {
+      setRefundError(`Refund cannot exceed the original payment of ${formatCurrency(refundTarget.amountMinor)}.`);
+      return;
+    }
+    if (refundReason.trim().length < 3) {
+      setRefundError('Give a short reason for the refund.');
+      return;
+    }
+
+    setRefunding(true);
+    try {
+      const refund = await refundPayment({
+        invoiceId: refundTarget.invoiceId,
+        paymentId: refundTarget.id,
+        refundAmountMinor: amountMinor,
+        refundReason: refundReason.trim(),
+      });
+      setAlert({
+        type: 'success',
+        message: `Refund of ${formatCurrency(refund.amountMinor)} recorded for ${refund.invoiceNumber}.`,
+      });
+      setRefundTarget(null);
+      await reload();
+    } catch (err) {
+      setRefundError(err instanceof Error ? err.message : 'Could not record the refund.');
+    } finally {
+      setRefunding(false);
+    }
+  }
   const unpaidInvoices = data?.payable ?? [];
   const selectedInvoice = unpaidInvoices.find(i => i.id === fInvoiceId);
 
@@ -221,6 +273,7 @@ export default function PaymentsPage() {
                   <th>Amount</th>
                   <th>Date</th>
                   <th>Note</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,11 +287,28 @@ export default function PaymentsPage() {
                         {formatStatus(payment.method)}
                       </Badge>
                     </td>
-                    <td className="font-semibold text-[var(--success-600)]">
-                      {formatCurrency(payment.amountMinor)}
+                    <td className={payment.isRefund ? 'font-semibold text-[var(--danger-600)]' : 'font-semibold text-[var(--success-600)]'}>
+                      {payment.isRefund ? '-' : ''}{formatCurrency(payment.amountMinor)}
+                      {payment.isRefund && (
+                        <Badge variant="danger" className="ml-2">Refund</Badge>
+                      )}
                     </td>
                     <td>{formatDate(payment.paymentDate)}</td>
-                    <td className="text-muted-foreground">{payment.note || '—'}</td>
+                    <td className="text-muted-foreground">
+                      {payment.isRefund ? payment.refundReason || payment.note || '—' : payment.note || '—'}
+                    </td>
+                    <td className="text-right">
+                      {!payment.isRefund && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openRefund(payment)}
+                          title="Issue refund / reversal"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" /> Refund
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -255,6 +325,45 @@ export default function PaymentsPage() {
           />
         </div>
       </Card>
+
+      <Dialog
+        open={!!refundTarget}
+        onClose={() => setRefundTarget(null)}
+        title="Process Refund / Reversal"
+        description={
+          refundTarget
+            ? `Original payment ${formatCurrency(refundTarget.amountMinor)} on ${refundTarget.invoiceNumber}.`
+            : undefined
+        }
+      >
+        <form noValidate onSubmit={handleRefund} className="space-y-4">
+          <Input
+            label="Refund Amount (₹)"
+            required
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={refundAmount}
+            onChange={(e) => setRefundAmount(e.target.value)}
+          />
+          <Textarea
+            label="Reason"
+            required
+            value={refundReason}
+            onChange={(e) => setRefundReason(e.target.value)}
+            placeholder="Why is this being refunded?"
+          />
+          {refundError && <Alert type="error" message={refundError} />}
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setRefundTarget(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="destructive" loading={refunding}>
+              Record Refund
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

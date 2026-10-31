@@ -167,6 +167,9 @@ export interface Payment {
   method: PaymentMethod;
   paymentDate: string;
   note?: string;
+  isRefund?: boolean;
+  refundReason?: string;
+  originalPaymentId?: string;
   createdAt?: string;
 }
 

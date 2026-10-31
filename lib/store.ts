@@ -244,6 +244,38 @@ export class PersistentStore {
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
     this.subscriptions.set(sub1.id, sub1);
+
+    // 8. Seed one valid Quotation ready to convert for demo
+    const quo1: Quotation = {
+      id: 'quo-demo-001',
+      number: 'QUO-2610-DEMO1',
+      customerId: customer2.id,
+      status: 'accepted',
+      validUntil: '2026-12-31',
+      items: [
+        {
+          id: 'quo-item-1',
+          quotationId: 'quo-demo-001',
+          productId: prod2.id,
+          productName: prod2.name,
+          quantity: 1,
+          unitPriceMinor: prod2.salePriceMinor, // 25,000 INR = 2,500,000 paise
+          taxRuleId: gst18.id,
+          taxRate: 18,
+          taxAmountMinor: 450000,
+          discountAmountMinor: 0,
+          totalMinor: 2950000,
+        },
+      ],
+      subtotalMinor: 2500000,
+      discountTotalMinor: 0,
+      taxTotalMinor: 450000,
+      totalMinor: 2950000,
+      notes: 'Dedicated compute cluster quotation for Apex Innovations LLP',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    this.quotations.set(quo1.id, quo1);
   }
 
   /**
@@ -311,6 +343,45 @@ export class PersistentStore {
 
       this.quotations.clear();
       data.quotations?.forEach((q) => this.quotations.set(q.id, q));
+
+      // Ensure seed quotation exists if empty
+      if (this.quotations.size === 0) {
+        const prod2 = this.products.get('prod-saas-pro');
+        const cust2 = this.customers.get('cust-102');
+        const gst18 = this.taxRules.get('tax-gst-18');
+        if (prod2 && cust2) {
+          const quo1: Quotation = {
+            id: 'quo-demo-001',
+            number: 'QUO-2610-DEMO1',
+            customerId: cust2.id,
+            status: 'accepted',
+            validUntil: '2026-12-31',
+            items: [
+              {
+                id: 'quo-item-1',
+                quotationId: 'quo-demo-001',
+                productId: prod2.id,
+                productName: prod2.name,
+                quantity: 1,
+                unitPriceMinor: prod2.salePriceMinor,
+                taxRuleId: gst18?.id,
+                taxRate: gst18?.rate ?? 18,
+                taxAmountMinor: 450000,
+                discountAmountMinor: 0,
+                totalMinor: 2950000,
+              },
+            ],
+            subtotalMinor: 2500000,
+            discountTotalMinor: 0,
+            taxTotalMinor: 450000,
+            totalMinor: 2950000,
+            notes: 'Dedicated compute cluster quotation for Apex Innovations LLP',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          };
+          this.quotations.set(quo1.id, quo1);
+        }
+      }
 
       this.subscriptions.clear();
       data.subscriptions?.forEach((s) => this.subscriptions.set(s.id, s));
