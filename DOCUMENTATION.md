@@ -19,7 +19,17 @@ Built as a modular Next.js application, it provides deterministic lifecycle mana
 
 ---
 
-## 2. Tech Stack & Engineering Standards
+## 2. Multi-Member Repository Coordination
+The shared GitHub repository (`https://github.com/navvv29/Subscription_Management_System`) coordinates 4 team work packages:
+- **`feature/navaneed-core-billing` (Member 1 - Navaneed):** Technical leadership, core billing engine, subscription lifecycle, payment reconciliation, API route handlers, canonical DTOs, Vitest test suite, and command center.
+- **`feature/frontend-ux` (Member 2 - Shehruz):** Customer portal, design system primitives, and admin workspace views under `src/`.
+- **Backend / DB (Member 3 - Afeeela):** Supabase migrations, auth, and role-based access control.
+- **`docs/saarishma-qa` (Member 4 - Saarishma):** QA traceability, test plans, and demo scripts. Merged via PR #1 into `feature/navaneed-core-billing`.
+- **Requirements Traceability Matrix:** Synchronized in [`REQUIREMENTS_TRACEABILITY.md`](file:///c:/Users/navan/OneDrive/Desktop/Projects/Subsript_one/REQUIREMENTS_TRACEABILITY.md) with verified test evidence for all Member 1 requirements (F10–F12, F14–F36, N01, N02, N04, N06).
+
+---
+
+## 3. Tech Stack & Engineering Standards
 - **Framework:** Next.js (App Router, Turbopack, React 19)
 - **Language:** TypeScript 5 (Strict Mode)
 - **Validation:** Zod (refined schemas for dates, IDs, integer paise, boundary checks)
@@ -34,18 +44,18 @@ Built as a modular Next.js application, it provides deterministic lifecycle mana
 
 ---
 
-## 3. Reliability & Validation Hardening
+## 4. Reliability & Validation Hardening
 
-### 3.1. Input & Schema Validation (`lib/validation/schemas.ts`)
-- **Flexible & Safe ID Validation:** Normalized `idSchema` with whitespace trimming and bounds checks (1–100 chars).
+### 4.1. Input & Schema Validation (`lib/validation/schemas.ts`)
+- **Flexible & Safe ID Validation:** Normalized `idSchema` with whitespace trimming and bounds checks (1–100 chars), safely accepting both UUIDs and slug IDs.
 - **Strict Calendar Date Validation:** `isoDateSchema` validates `YYYY-MM-DD` syntax via regex and asserts valid calendar date values via `Date.parse`.
-- **Integer Minor Units:** All monetary values (`salePriceMinor`, `costPriceMinor`, `unitPriceMinor`, `amountMinor`, `minimumPurchaseMinor`) are enforced as positive integers or non-negative integers; decimal floats are rejected.
+- **Integer Minor Units:** All monetary values (`salePriceMinor`, `costPriceMinor`, `unitPriceMinor`, `amountMinor`, `minimumPurchaseMinor`) are enforced as integers; decimal floats are strictly rejected.
 - **Relational Date Cross-Validation:**
   - Plans: `availableUntil >= availableFrom`
   - Subscriptions: `endDate >= startDate`
   - Discounts: `validUntil >= validFrom` and `value <= 100` for percentage discounts.
 
-### 3.2. Contractual & Relational Validation
+### 4.2. Contractual & Relational Validation
 - **Subscription Creation (`app/api/subscriptions/route.ts`):**
   - Asserts customer exists in store (404 otherwise).
   - Asserts plan exists in store (404 otherwise).
@@ -61,13 +71,13 @@ Built as a modular Next.js application, it provides deterministic lifecycle mana
   - Prohibits cancelling fully paid invoices.
   - Prohibits cancelling invoices with recorded payments (`paidMinor > 0`).
 
-### 3.3. Billing Engine Reliability & Concurrency Guards (`features/billing/billing-service.ts`)
+### 4.3. Billing Engine Reliability & Concurrency Guards (`features/billing/billing-service.ts`)
 - **Contractual End-Date Enforcement:** Subscriptions with `endDate` are strictly blocked from generating invoices once `nextBillingDate > endDate`.
 - **Atomic Discount Usage Tracking:** Sequential and concurrent invoice generations update `discount.usageCount` atomically, preventing overuse beyond `discount.usageLimit`.
 - **Idempotency Guard:** `(subscription_id, billing_period_start, billing_period_end)` prevents duplicate invoices across repeated batch executions.
 - **Transaction Safety:** `next_billing_date` advances only after invoice generation succeeds.
 
-### 3.4. Payment Reconciliation (`features/payments/payment-service.ts`)
+### 4.4. Payment Reconciliation (`features/payments/payment-service.ts`)
 - Prohibits payments on `draft`, `cancelled`, or `paid` invoices.
 - Strict overpayment rejection (`amountMinor > balanceMinor`).
 - Deterministic partial payment balance deduction and status transition (`partially_paid` vs `paid`).
@@ -75,7 +85,7 @@ Built as a modular Next.js application, it provides deterministic lifecycle mana
 
 ---
 
-## 4. Implemented Modules & Directory Structure
+## 5. Implemented Modules & Directory Structure
 
 ```text
 Subsript_one/
@@ -105,7 +115,7 @@ Subsript_one/
 │   │   ├── products/route.ts              # GET, POST: Products CRUD
 │   │   ├── quotations/
 │   │   │   ├── route.ts                   # GET, POST: Quotation CRUD
-│   │   │   └── [id]/convert/route.ts      # POST: Convert Valid Quotation to Subscription
+│   │   └── [id]/convert/route.ts          # POST: Convert Valid Quotation to Subscription
 │   │   ├── reports/revenue/route.ts       # GET: Monthly Collected vs Outstanding
 │   │   └── subscriptions/
 │   │       ├── route.ts                   # GET, POST: Subscriptions CRUD
@@ -145,57 +155,33 @@ Subsript_one/
 │   ├── api.ts                             # Shared API Request/Response DTOs
 │   ├── common.ts                          # Currency Formatting & Status Color Mappings
 │   └── database.ts                        # Canonical Domain Entities & Enums
+├── REQUIREMENTS_TRACEABILITY.md           # Requirements Traceability Matrix (F01–F36, N01–N06)
 ├── vitest.config.ts                       # Test Configuration
 └── package.json                           # Next.js 16, React 19, Vitest, Tailwind
 ```
 
 ---
 
-## 5. Verification & Test Suite Results
+## 6. Verification & Test Suite Results
 Vitest test suite executed and verified:
 - **Test Files:** 10 passed (10/10)
 - **Total Tests:** 49 passed (49/49)
-- **Coverage Areas:**
-  1. Billing date intervals (daily, weekly, monthly, yearly)
-  2. Month-end 31st pinning (Jan 31 → Feb 28 / Feb 29 leap year)
-  3. Leap year yearly rollover (Feb 29 → Feb 28)
-  4. 30-day month transitions (April 30 → May 30, May 31 → June 30)
-  5. 4-year yearly intervals spanning leap year (Feb 29, 2024 → 2025 → 2026 → 2027 → Feb 29, 2028)
-  6. Subscription valid lifecycle progression (`draft` → `quotation` → `confirmed` → `active` → `closed`)
-  7. Rejection of invalid subscription state transitions
-  8. Plan policy enforcement (`allowPause`, `allowEarlyClose`)
-  9. `canBeBilled` guard for subscription states
-  10. Deterministic tax calculation fixture matching blueprint specification
-  11. Inclusive tax reverse derivation
-  12. Discount eligibility (expiry, usage limit exhaustion, minimum purchase, product scoping)
-  13. Single subscription invoice generation with line snapshots
-  14. Idempotency & duplicate protection when re-running billing batches
-  15. Skipping of paused, closed, and expired subscriptions
-  16. Batch fault isolation (single failure does not crash batch)
-  17. Rejection of payments on draft, cancelled, or paid invoices
-  18. Partial payment balance reduction and `partially_paid` status
-  19. Full payment zero balance and `paid` status
-  20. Exact sum of multiple partial payments resulting in paid status
-  21. Strict rejection of overpayments
-  22. Rejection of invalid emails, negative prices, floats, and inverted dates
-  23. Discount usage cap exhaustion across sequential batch invoices
-  24. Contractual end date enforcement (stops billing past `endDate`)
-  25. Reconciliation of dashboard financial aggregates with underlying records
-  26. **Scale Benchmark (N01):**
-      - 5,000 subscriptions filter and sort: **1.45ms** (Requirement: < 2,000ms)
-      - 1,000 invoice batch generation: **117.55ms** (Requirement: < 2,000ms)
+- **Scale Benchmark (N01):**
+  - 5,000 subscriptions filter and sort: **1.45ms** (Requirement: < 2,000ms)
+  - 1,000 invoice batch generation: **117.55ms** (Requirement: < 2,000ms)
 
 ---
 
-## 6. Build Status
+## 7. Build Status
 - `npm run build` executed with **0 errors**.
 - All 22 routes (Static pages, Server-rendered API Route Handlers) compiled successfully.
 
 ---
 
-## 7. Current Project Status & Git Changelog
+## 8. Current Project Status & Git Changelog
 - **Git Branch:** `feature/navaneed-core-billing`
-- **Current Status:** Validated, hardened, benchmarked, and verified.
+- **Remote Tracking:** `origin/feature/navaneed-core-billing`
+- **Collaborator Branches Tracked:** `origin/docs/saarishma-qa` (PR #1 integrated), `origin/feature/frontend-ux`
 
 | Date | Phase | Details | Author |
 |------|-------|---------|--------|
@@ -206,3 +192,4 @@ Vitest test suite executed and verified:
 | 2026-10-31 | UI Command Center | App Shell, Navigation, Dashboard with live batch runner & quick pay | Navaneed |
 | 2026-10-31 | QA & Verification | 36 Vitest tests passing; Next.js production build passing | Navaneed |
 | 2026-10-31 | Reliability Hardening | Zod schema validation, date bounds, end-date guards, discount caps, 49 tests, N01 benchmark | Navaneed |
+| 2026-10-31 | Multi-Branch Integration | Synced with `docs/saarishma-qa` (PR #1), updated `REQUIREMENTS_TRACEABILITY.md` with verified evidence | Navaneed |
