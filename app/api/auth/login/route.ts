@@ -1,14 +1,2 @@
-import { apiError, apiSuccess } from '@/lib/api-helpers';
-import { signInSchema } from '@/lib/validation/schemas';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-
-export async function POST(request: Request) {
-  let body: unknown;
-  try { body = await request.json(); } catch { return apiError('VALIDATION_ERROR', 'A JSON request body is required'); }
-  const parsed = signInSchema.safeParse(body);
-  if (!parsed.success) return apiError('VALIDATION_ERROR', parsed.error.issues.map((issue) => issue.message).join(', '));
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return apiError('LOGIN_FAILED', 'Email or password is incorrect', 401);
-  return apiSuccess({ userId: data.user.id, email: data.user.email });
-}
+import { NextResponse } from 'next/server'; import { createSupabaseServerClient } from '@/lib/supabase/server'; import { parseJson,badRequest,success } from '@/lib/api'; import { signInSchema } from '@/lib/validation/schemas';
+export async function POST(request:Request){const p=signInSchema.safeParse(await parseJson(request));if(!p.success)return badRequest('Invalid login details',p.error.flatten());const supabase=await createSupabaseServerClient();const {data,error}=await supabase.auth.signInWithPassword(p.data);if(error)return NextResponse.json({error:{code:'LOGIN_FAILED',message:'Email or password is incorrect'}},{status:401});return success({userId:data.user.id,email:data.user.email})}

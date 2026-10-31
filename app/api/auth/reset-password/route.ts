@@ -1,14 +1,2 @@
-import { z } from 'zod';
-import { apiError, apiSuccess } from '@/lib/api-helpers';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-
-export async function POST(request: Request) {
-  let body: unknown;
-  try { body = await request.json(); } catch { return apiError('VALIDATION_ERROR', 'A JSON request body is required'); }
-  const parsed = z.object({ email: z.string().trim().email() }).safeParse(body);
-  if (!parsed.success) return apiError('VALIDATION_ERROR', 'A valid email address is required');
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password` });
-  if (error) return apiError('RESET_REQUEST_FAILED', error.message, 400);
-  return apiSuccess({ requested: true });
-}
+import { NextResponse } from 'next/server'; import { z } from 'zod'; import { createSupabaseServerClient } from '@/lib/supabase/server'; import { parseJson,badRequest,success } from '@/lib/api';
+export async function POST(request:Request){const p=z.object({email:z.string().email()}).safeParse(await parseJson(request));if(!p.success)return badRequest('A valid email is required');const s=await createSupabaseServerClient();const {error}=await s.auth.resetPasswordForEmail(p.data.email,{redirectTo:`${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`});if(error)return NextResponse.json({error:{code:'RESET_REQUEST_FAILED',message:error.message}},{status:400});return success({requested:true})}
