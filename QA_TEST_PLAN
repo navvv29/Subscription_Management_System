@@ -1,0 +1,66 @@
+Subscript One — QA Test Plan
+
+Purpose
+
+Verify the functional requirements, security, billing reliability and financial correctness of Subscript One.
+
+Test Status
+
+- Not started
+- In progress
+- Passed
+- Failed
+- Blocked
+- Unverified
+
+Test Cases
+
+ID| Test Scenario| Expected Result| Evidence Requested| Tester| Status
+TC01| Register with duplicate email| Registration rejected| API response/screenshot| Afeela| Not started
+TC02| Invalid password rules| Weak password rejected| Validation result| Afeela| Not started
+TC03| Non-admin creates staff| Access denied| API response| Afeela| Not started
+TC04| Customer A accesses Customer B data| Access denied| API response| Afeela| Not started
+TC05| Apply product variant price| Adjustment applied exactly once| Invoice breakdown| Afeela| Not started
+TC06| Test daily/weekly/monthly/yearly billing| Correct billing periods| Test output| Navaneed| Not started
+TC07| Accept expired quotation| Acceptance rejected| Screenshot/API response| Navaneed| Not started
+TC08| Perform invalid subscription transition| Transition rejected| API response| Navaneed| Not started
+TC09| Bill paused/closed/expired subscription| No invoice generated| Billing output| Navaneed| Not started
+TC10| Run billing twice| No duplicate invoice| Invoice records| Navaneed| Not started
+TC11| Simulate invoice creation failure| Next billing date does not advance| Test output| Navaneed| Not started
+TC12| Apply expired/below-threshold/exhausted discount| Discount rejected| Test output| Navaneed| Not started
+TC13| Concurrent discount usage| Usage cap not exceeded| Concurrency test output| Navaneed| Not started
+TC14| Check tax and discount calculations| Totals match expected fixtures| Calculation output| Navaneed| Not started
+TC15| Test partial/full/overpayment| Balance and status update correctly| Payment records| Navaneed| Not started
+TC16| Check overdue invoices| Paid/cancelled invoices excluded| Dashboard screenshot| Navaneed| Not started
+TC17| Reconcile dashboard metrics| Metrics match invoice/payment records| Dashboard evidence| Navaneed| Not started
+TC18| Print invoice| Customer, lines, tax and totals appear| PDF/screenshot| Navaneed| Not started
+TC19| Test password reset and invoice email| Email delivered through verified provider| Email evidence| Afeela + Navaneed| Not started
+TC20| Test thousands of subscriptions| Pagination and performance measured| Benchmark results| Afeela + Navaneed| Not started
+
+Testing Rules
+
+1. Never mark a test Passed without evidence.
+2. Record actual results, not assumptions.
+3. Security and financial correctness take priority.
+4. Ask laptop contributors to run tests and attach results to their PRs.
+5. Mark tests Unverified when evidence is unavailable.
+
+Critical Demo Blockers
+
+- Unauthorized customer-data access.
+- Duplicate invoice generation.
+- Incorrect invoice totals.
+- Incorrect payment balances.
+- Incorrect billing dates.
+
+Test Summary
+
+Total test cases: 20
+
+Passed: Pending
+
+Failed: Pending
+
+Blocked: Pending
+
+Unverified: Pending
