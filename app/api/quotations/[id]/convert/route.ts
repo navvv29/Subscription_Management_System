@@ -1,0 +1,84 @@
+import { NextRequest } from 'next/server';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
+import { store } from '@/lib/store';
+import { generateUniqueNumber, isDateExpired } from '@/lib/billing/date-utils';
+import type { Subscription, SubscriptionItem } from '@/types/database';
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const quotation = store.quotations.get(id);
+
+    if (!quotation) {
+      return apiError('NOT_FOUND', 'Quotation not found', 404);
+    }
+
+    // Check validity date
+    if (isDateExpired(quotation.validUntil)) {
+      quotation.status = 'expired';
+      quotation.updatedAt = new Date().toISOString();
+      return apiError('EXPIRED_QUOTATION', 'Cannot convert an expired quotation.', 400);
+    }
+
+    if (quotation.status !== 'accepted' && quotation.status !== 'draft') {
+      return apiError(
+        'INVALID_STATUS',
+        `Quotation status '${quotation.status}' cannot be converted. Status must be accepted or draft.`,
+        400
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const planId = body.planId || Array.from(store.plans.keys())[0] || 'plan-monthly-core';
+    const startDate = body.startDate || new Date().toISOString().split('T')[0];
+    const paymentTerms = body.paymentTerms || 'Net 30';
+
+    const subscriptionId = crypto.randomUUID();
+
+    // Preserve agreed quotation line prices deterministically
+    const items: SubscriptionItem[] = quotation.items.map((qItem) => ({
+      id: crypto.randomUUID(),
+      subscriptionId,
+      productId: qItem.productId,
+      productName: qItem.productName,
+      variantId: qItem.variantId,
+      variantName: qItem.variantName,
+      quantity: qItem.quantity,
+      unitPriceMinor: qItem.unitPriceMinor, // Preserved agreed price
+      taxRuleId: qItem.taxRuleId,
+      taxRate: qItem.taxRate,
+      taxAmountMinor: qItem.taxAmountMinor,
+      discountAmountMinor: qItem.discountAmountMinor,
+      totalMinor: qItem.totalMinor,
+    }));
+
+    const subscription: Subscription = {
+      id: subscriptionId,
+      number: generateUniqueNumber('SUB'),
+      customerId: quotation.customerId,
+      planId,
+      status: 'confirmed',
+      startDate,
+      nextBillingDate: startDate,
+      paymentTerms,
+      items,
+      subtotalMinor: quotation.subtotalMinor,
+      discountTotalMinor: quotation.discountTotalMinor,
+      taxTotalMinor: quotation.taxTotalMinor,
+      totalMinor: quotation.totalMinor,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    quotation.status = 'accepted';
+    quotation.updatedAt = new Date().toISOString();
+
+    store.subscriptions.set(subscription.id, subscription);
+    return apiSuccess(subscription, 201);
+  } catch (err: unknown) {
+    return apiError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Conversion failed', 500);
+  }
+}
