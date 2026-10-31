@@ -18,3 +18,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: { code: 'SERVER_CONFIGURATION', message: err instanceof Error ? err.message : 'Database error' } }, { status: 503 });
   }
 }
+

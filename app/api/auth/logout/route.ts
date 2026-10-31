@@ -11,3 +11,4 @@ export async function POST() {
     return NextResponse.json({ error: { code: 'SERVER_CONFIGURATION', message: err instanceof Error ? err.message : 'Database error' } }, { status: 503 });
   }
 }
+

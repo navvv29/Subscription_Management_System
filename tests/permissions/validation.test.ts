@@ -38,3 +38,4 @@ describe('backend input validation', () => {
     expect(planSchema.safeParse({ ...plan, available_from: '2026-11-02', available_until: '2026-11-01' }).success).toBe(false);
   });
 });
+

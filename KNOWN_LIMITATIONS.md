@@ -124,3 +124,59 @@ Before the final demonstration, ask each owner to report:
 Update this document as evidence becomes available.
 
 Final Rule: Accuracy and transparency are more important than making the demo appear complete.
+Customer Portal Authentication and Data Isolation
+
+Current Implementation Status
+
+The customer portal currently uses a hardcoded demo profile instead of Supabase Auth.
+
+Findings
+
+1. Customer login is not connected to Supabase Auth.
+2. Quotations are loaded from local sample data rather than authenticated customer-specific APIs.
+3. The demo adapter filters records using the fixed customer ID "cust-001".
+4. Customer-specific authorization is not enforced or verified on the server.
+5. Subscriptions and invoices also rely on local demo filtering.
+6. Customer A versus Customer B data isolation has not been tested.
+
+Evidence
+
+- "lib/api/portal.ts", line 18: Fixed demo session and "cust-001" filtering.
+- "supabase/migrations/20261031000000_core_billing_schema.sql", line 323: Reported RLS configuration does not establish the required customer-specific access policies.
+- "REQUIREMENTS_TRACEABILITY.md", line 25: Customer data isolation remains marked Not Started.
+
+Impact
+
+Real customer authentication and secure customer-specific access to quotations, subscriptions and invoices are not established.
+
+Required Actions
+
+1. Integrate Supabase Auth login and sign-out.
+2. Map authenticated users to customer records.
+3. Implement server-side customer-scoped endpoints.
+4. Implement and verify ownership-based RLS policies.
+5. Replace hardcoded demo-profile adapters.
+6. Test Customer A and Customer B access restrictions.
+7. Verify quotations, subscriptions and invoices separately.
+
+Ownership
+
+- Backend and RLS: Afeela.
+- Customer portal integration: Shehruz.
+- QA verification: Saarishma.
+
+QA Status
+
+UI: Demonstrated.
+
+Authentication: Not implemented.
+
+Customer-scoped APIs: Not implemented.
+
+Data isolation: Unverified.
+
+Security acceptance: Not passed.
+
+Evidence Rule
+
+No customer-data security requirement can be marked Verified until authenticated cross-customer access tests pass.

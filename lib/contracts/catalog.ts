@@ -13,3 +13,4 @@ export const productDto = (value: unknown, includeCost = false): Product => {
 };
 export const variantDto = (r: DbRow): ProductVariant => ({ id: r.id as string, productId: r.product_id as string, name: r.name as string, priceAdjustmentMinor: Number(r.price_adjustment_minor), value: r.value as string | null });
 export const planDto = (r: DbRow): Plan => ({ id: r.id as string, name: r.name as string, interval: r.billing_interval as Plan['interval'], minimumQuantity: Number(r.minimum_quantity), availableFrom: r.available_from as string | null, availableUntil: r.available_until as string | null, allowPause: Boolean(r.allow_pause), allowEarlyClose: Boolean(r.allow_early_close), allowRenewal: Boolean(r.allow_renewal) });
+

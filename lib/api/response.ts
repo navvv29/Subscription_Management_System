@@ -28,3 +28,4 @@ export function parsePagination(params: URLSearchParams) {
     pageSize: Math.min(100, positiveInt(params.get('pageSize'), 25)),
   };
 }
+

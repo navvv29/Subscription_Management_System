@@ -40,3 +40,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: 'SERVER_CONFIGURATION', message: e instanceof Error ? e.message : 'Server configuration error' } }, { status: 503 });
   }
 }
+
