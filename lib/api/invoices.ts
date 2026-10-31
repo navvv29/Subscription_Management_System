@@ -141,10 +141,23 @@ export async function cancelInvoice(id: string): Promise<Invoice> {
  */
 export async function sendInvoiceEmail(id: string): Promise<SendEmailResult> {
   if (!isMockApiEnabled()) {
-    const invoice = await apiFetch<ServerInvoice>(`/api/invoices/${id}`);
+    const result = await apiFetch<{
+      message: string;
+      dispatch: {
+        mode: 'smtp' | 'mock_logged';
+        recipientEmail: string;
+        dispatchedAt: string;
+      };
+    }>(`/api/invoices/${id}/send`, { method: 'POST', body: JSON.stringify({}) });
+
+    // The server logs dispatches without a configured provider. Only report a
+    // real send when a live transport actually handled it.
+    if (result.dispatch.mode === 'smtp') {
+      return { sent: true, message: result.message, emailSentAt: result.dispatch.dispatchedAt };
+    }
     return {
       sent: false,
-      message: `No email provider is configured for this demo. Invoice ${invoice.number} was not sent.`,
+      message: `Demo mode: no email provider is configured, so this invoice was logged for ${result.dispatch.recipientEmail} but not delivered.`,
     };
   }
   const invoice = db.invoices.find((i) => i.id === id);

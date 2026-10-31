@@ -242,7 +242,10 @@ export default function InvoiceDetailPage() {
               <XCircle className="w-4 h-4" /> Cancel
             </Button>
           )}
-          <Button variant="outline" onClick={() => window.print()}>
+          <Button
+            variant="outline"
+            onClick={() => window.open(`/invoices/${invoice.id}/print`, '_blank', 'noopener')}
+          >
             <Printer className="w-4 h-4" /> Print
           </Button>
         </div>

@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
   Customer,
   Product,
@@ -9,9 +11,26 @@ import type {
   Payment,
   TaxRule,
   Discount,
+  BillingRun,
+  AuditLog,
 } from '@/types/database';
 
-class InMemoryStore {
+export interface SerializedStoreData {
+  customers: Customer[];
+  products: Product[];
+  variants: ProductVariant[];
+  plans: Plan[];
+  quotations: Quotation[];
+  subscriptions: Subscription[];
+  invoices: Invoice[];
+  payments: Payment[];
+  taxRules: TaxRule[];
+  discounts: Discount[];
+  billingRuns: BillingRun[];
+  auditLogs: AuditLog[];
+}
+
+export class PersistentStore {
   customers = new Map<string, Customer>();
   products = new Map<string, Product>();
   variants = new Map<string, ProductVariant>();
@@ -22,9 +41,56 @@ class InMemoryStore {
   payments = new Map<string, Payment>();
   taxRules = new Map<string, TaxRule>();
   discounts = new Map<string, Discount>();
+  billingRuns = new Map<string, BillingRun>();
+  auditLogs = new Map<string, AuditLog>();
 
-  constructor() {
+  private storageFilePath: string;
+  private isPersistingEnabled: boolean = true;
+
+  constructor(customStoragePath?: string) {
+    const defaultDir = path.join(process.cwd(), '.data');
+    this.storageFilePath = customStoragePath || path.join(defaultDir, 'store.json');
+
+    // In unit tests, disk persistence can be disabled if desired, or point to a custom file
+    if (process.env.DISABLE_STORE_PERSISTENCE === 'true') {
+      this.isPersistingEnabled = false;
+    }
+
+    // Try loading existing state from disk, otherwise seed
+    const loaded = this.loadFromDisk();
+    if (!loaded) {
+      this.seed();
+      this.persist();
+    }
+  }
+
+  setPersistence(enabled: boolean) {
+    this.isPersistingEnabled = enabled;
+  }
+
+  setStoragePath(newPath: string) {
+    this.storageFilePath = newPath;
+  }
+
+  /**
+   * Reset the store to default seed data and persist to disk.
+   */
+  reset() {
+    this.customers.clear();
+    this.products.clear();
+    this.variants.clear();
+    this.plans.clear();
+    this.quotations.clear();
+    this.subscriptions.clear();
+    this.invoices.clear();
+    this.payments.clear();
+    this.taxRules.clear();
+    this.discounts.clear();
+    this.billingRuns.clear();
+    this.auditLogs.clear();
+
     this.seed();
+    this.persist();
   }
 
   seed() {
@@ -35,8 +101,8 @@ class InMemoryStore {
       rate: 18,
       behavior: 'exclusive',
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     this.taxRules.set(gst18.id, gst18);
 
@@ -47,8 +113,8 @@ class InMemoryStore {
       email: 'contact@brightloop.io',
       phone: '+91-9876543210',
       company: 'Brightloop Technologies Pvt Ltd',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     const customer2: Customer = {
       id: 'cust-102',
@@ -56,8 +122,8 @@ class InMemoryStore {
       email: 'billing@apexinno.com',
       phone: '+91-9876543211',
       company: 'Apex Innovations LLP',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     this.customers.set(customer1.id, customer1);
     this.customers.set(customer2.id, customer2);
@@ -71,8 +137,8 @@ class InMemoryStore {
       costPriceMinor: 400000,  // 4,000 INR
       notes: 'Standard virtual compute instance with 16GB RAM',
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     const prod2: Product = {
       id: 'prod-saas-pro',
@@ -82,8 +148,8 @@ class InMemoryStore {
       costPriceMinor: 1000000,
       notes: 'Dedicated compute instance with 64GB RAM and NVMe',
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     this.products.set(prod1.id, prod1);
     this.products.set(prod2.id, prod2);
@@ -94,8 +160,8 @@ class InMemoryStore {
       productId: prod1.id,
       name: '24x7 Dedicated Support SLA',
       priceAdjustmentMinor: 56000, // 560 INR
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     this.variants.set(var1.id, var1);
 
@@ -108,8 +174,8 @@ class InMemoryStore {
       allowPause: true,
       allowEarlyClose: true,
       allowRenewal: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     const planYearly: Plan = {
       id: 'plan-yearly-enterprise',
@@ -119,8 +185,8 @@ class InMemoryStore {
       allowPause: false,
       allowEarlyClose: false,
       allowRenewal: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     this.plans.set(planMonthly.id, planMonthly);
     this.plans.set(planYearly.id, planYearly);
@@ -134,14 +200,14 @@ class InMemoryStore {
       validFrom: '2026-01-01',
       validUntil: '2026-12-31',
       usageLimit: 100,
-      usageCount: 2,
+      usageCount: 0,
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     this.discounts.set(discount10.id, discount10);
 
-    // 7. Seed one active subscription due for billing today
+    // 7. Seed one active subscription
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const sub1: Subscription = {
@@ -162,27 +228,120 @@ class InMemoryStore {
           variantId: var1.id,
           variantName: var1.name,
           quantity: 2,
-          unitPriceMinor: prod1.salePriceMinor + var1.priceAdjustmentMinor, // 10,560 INR per unit
+          unitPriceMinor: prod1.salePriceMinor + var1.priceAdjustmentMinor, // 10,560 INR per unit = 1,056,000 paise
           taxRuleId: gst18.id,
           taxRate: 18,
-          taxAmountMinor: 380160,
+          taxAmountMinor: 342144,
           discountAmountMinor: 211200,
-          totalMinor: 2280960,
+          totalMinor: 2242944,
         },
       ],
       subtotalMinor: 2112000,
-      taxTotalMinor: 380160,
+      taxTotalMinor: 342144,
       discountTotalMinor: 211200,
-      totalMinor: 2280960,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      totalMinor: 2242944,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
     };
     this.subscriptions.set(sub1.id, sub1);
   }
+
+  /**
+   * Persist current store state to disk using atomic temporary file write and rename.
+   */
+  persist(): boolean {
+    if (!this.isPersistingEnabled) return true;
+
+    try {
+      const data: SerializedStoreData = {
+        customers: Array.from(this.customers.values()),
+        products: Array.from(this.products.values()),
+        variants: Array.from(this.variants.values()),
+        plans: Array.from(this.plans.values()),
+        quotations: Array.from(this.quotations.values()),
+        subscriptions: Array.from(this.subscriptions.values()),
+        invoices: Array.from(this.invoices.values()),
+        payments: Array.from(this.payments.values()),
+        taxRules: Array.from(this.taxRules.values()),
+        discounts: Array.from(this.discounts.values()),
+        billingRuns: Array.from(this.billingRuns.values()),
+        auditLogs: Array.from(this.auditLogs.values()),
+      };
+
+      const dir = path.dirname(this.storageFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      const tempFile = `${this.storageFilePath}.${Date.now()}.tmp`;
+      fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+      fs.renameSync(tempFile, this.storageFilePath);
+      return true;
+    } catch (err) {
+      console.error('[PersistentStore] Error writing to disk:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Load store state from disk if exists.
+   */
+  loadFromDisk(): boolean {
+    if (!this.isPersistingEnabled) return false;
+
+    try {
+      if (!fs.existsSync(this.storageFilePath)) {
+        return false;
+      }
+
+      const raw = fs.readFileSync(this.storageFilePath, 'utf-8');
+      const data: Partial<SerializedStoreData> = JSON.parse(raw);
+
+      this.customers.clear();
+      data.customers?.forEach((c) => this.customers.set(c.id, c));
+
+      this.products.clear();
+      data.products?.forEach((p) => this.products.set(p.id, p));
+
+      this.variants.clear();
+      data.variants?.forEach((v) => this.variants.set(v.id, v));
+
+      this.plans.clear();
+      data.plans?.forEach((p) => this.plans.set(p.id, p));
+
+      this.quotations.clear();
+      data.quotations?.forEach((q) => this.quotations.set(q.id, q));
+
+      this.subscriptions.clear();
+      data.subscriptions?.forEach((s) => this.subscriptions.set(s.id, s));
+
+      this.invoices.clear();
+      data.invoices?.forEach((i) => this.invoices.set(i.id, i));
+
+      this.payments.clear();
+      data.payments?.forEach((p) => this.payments.set(p.id, p));
+
+      this.taxRules.clear();
+      data.taxRules?.forEach((t) => this.taxRules.set(t.id, t));
+
+      this.discounts.clear();
+      data.discounts?.forEach((d) => this.discounts.set(d.id, d));
+
+      this.billingRuns.clear();
+      data.billingRuns?.forEach((b) => this.billingRuns.set(b.id, b));
+
+      this.auditLogs.clear();
+      data.auditLogs?.forEach((a) => this.auditLogs.set(a.id, a));
+
+      return true;
+    } catch (err) {
+      console.error('[PersistentStore] Failed to load from disk, will fallback to seed:', err);
+      return false;
+    }
+  }
 }
 
-// Global singleton to persist state in Next.js dev server
-const globalForStore = globalThis as unknown as { store: InMemoryStore };
-export const store = globalForStore.store || new InMemoryStore();
+// Global singleton to persist state across Next.js module reloads in dev mode
+const globalForStore = globalThis as unknown as { store: PersistentStore };
+export const store = globalForStore.store || new PersistentStore();
 if (process.env.NODE_ENV !== 'production') globalForStore.store = store;
-

@@ -44,7 +44,10 @@ in `lib/mock-data.ts` then back the pages.
 - Quotations can carry a plan per line (optional field added to the schema and
   canonical item type). Conversion prefers that plan and falls back to the first
   plan whose minimum quantity the quotation satisfies.
-- Email is never reported as sent: no provider is configured, and the UI says so.
+- Email uses the server dispatch endpoint. When it reports `mock_logged` (no
+  SMTP/provider configured) the UI says the invoice was logged, not delivered;
+  only an `smtp` dispatch is shown as sent.
+- Printing opens the server-rendered invoice document at `/invoices/:id/print`.
 - The portal remains a labelled demo session. There is no authentication or
   customer-scoped API in this build, so it reads local sample records. Do not
   treat any portal hiding of links as authorization.
@@ -62,9 +65,10 @@ line plan, and billing batch results include `subscriptionNumber`.
 
 ## Known gaps
 
-- The store is in memory: restarting the server resets customers, quotations,
-  subscriptions, invoices and payments to the seed data.
 - No Supabase auth/RLS, so portal data is not server-authorized yet.
-- No email provider; "Send email" reports the demo fallback.
+- No email provider; server dispatches are logged and the UI reports that
+  honestly instead of claiming delivery.
+- The UI does not yet expose the newer refund, billing-run history or audit-log
+  endpoints; they exist server-side.
 - The frontend keeps its own view models with display joins; keep them aligned
   with `types/database.ts` when the contracts change.

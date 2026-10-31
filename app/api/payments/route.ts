@@ -3,6 +3,7 @@ import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createPaymentSchema } from '@/lib/validation/schemas';
 import { validateAndApplyPayment } from '@/features/payments/payment-service';
 import { store } from '@/lib/store';
+import { recordAuditLog } from '@/lib/audit/audit-service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,7 +37,18 @@ export async function POST(request: NextRequest) {
       return apiError('NOT_FOUND', 'Invoice not found', 404);
     }
 
-    const result = validateAndApplyPayment(invoice, amountMinor, method, paymentDate, note);
+    const transactionRef = (body.transactionRef as string) || undefined;
+    const recordedBy = (body.recordedBy as string) || 'system';
+
+    const result = validateAndApplyPayment(
+      invoice,
+      amountMinor,
+      method,
+      paymentDate,
+      note,
+      recordedBy,
+      transactionRef
+    );
 
     if (!result.success || !result.payment || !result.updatedInvoice) {
       return apiError('PAYMENT_REJECTED', result.error ?? 'Payment validation failed', 400);
@@ -46,6 +58,25 @@ export async function POST(request: NextRequest) {
     store.payments.set(result.payment.id, result.payment);
     Object.assign(invoice, result.updatedInvoice);
     store.invoices.set(invoice.id, invoice);
+
+    // Record audit log
+    recordAuditLog({
+      actorId: recordedBy,
+      action: 'payment.recorded',
+      entityType: 'payment',
+      entityId: result.payment.id,
+      metadata: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        amountMinor: result.payment.amountMinor,
+        method: result.payment.method,
+        newBalanceMinor: result.updatedInvoice.balanceMinor,
+        newStatus: result.updatedInvoice.status,
+      },
+    });
+
+    // Atomic disk persistence
+    store.persist();
 
     return apiSuccess(
       {
@@ -58,4 +89,3 @@ export async function POST(request: NextRequest) {
     return apiError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Payment recording failed', 500);
   }
 }
-
