@@ -1,0 +1,39 @@
+Development Progress Update
+
+This section tracks development progress during the hackathon.
+
+Area| Requirement IDs| Assigned Owner| Implementation Status| Evidence / PR Reference
+Authentication and registration| F01–F04| Afeela| Awaiting confirmation| Pending
+Roles and authorization| F05–F07| Afeela| Awaiting confirmation| Pending
+Products and variants| F08–F09| Afeela| Awaiting confirmation| Pending
+Plans and billing configuration| F10–F12| Afeela + Navaneed| Awaiting confirmation| Pending
+Quotations| F13–F14| Shehruz + Afeela + Navaneed| Awaiting confirmation| Pending
+Subscriptions| F15–F18| Navaneed + Afeela + Shehruz| Awaiting confirmation| Pending
+Invoices and billing| F19–F23| Navaneed + Afeela + Shehruz| Awaiting confirmation| Pending
+Discounts| F24–F29| Navaneed + Afeela| Awaiting confirmation| Pending
+Payments| F30–F32| Navaneed + Shehruz| Awaiting confirmation| Pending
+Finance dashboard| F33–F36| Navaneed + Shehruz| Awaiting confirmation| Pending
+Performance| N01| Afeela + Navaneed| Awaiting benchmark| Pending
+Billing reliability| N02| Navaneed + Afeela| Awaiting testing| Pending
+Security| N03| Afeela| Awaiting testing| Pending
+Financial correctness| N04| Navaneed + Afeela| Awaiting testing| Pending
+Usability| N05| Shehruz| Awaiting review| Pending
+Maintainability| N06| Afeela + Navaneed| Awaiting review| Pending
+
+Progress Update Rules
+
+1. Update implementation status only after checking with the responsible developer.
+2. Add the relevant GitHub PR or commit reference.
+3. Request screenshots, test outputs or API responses as evidence.
+4. Use Implemented — needs test when implementation exists but testing is incomplete.
+5. Use Verified only when supporting evidence is available.
+6. Record unresolved questions and blockers.
+
+QA Review Log
+
+Date / Time| Area Reviewed| Finding| Assigned Owner| Follow-up
+Pending| Pending| Pending| Pending| Pending
+
+QA Owner: Documentation and Quality Assurance Team Member
+
+Project: Subscript One
